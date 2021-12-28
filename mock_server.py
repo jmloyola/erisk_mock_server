@@ -43,7 +43,7 @@ class Connection(sqlite3.Connection):
 
 
 app = FastAPI()
-database = Database(f"sqlite:///{config.database_name}.db", factory=Connection)
+database = Database(f"sqlite:///database/{config.database_name}.db", factory=Connection)
 
 
 TaskName = Enum(

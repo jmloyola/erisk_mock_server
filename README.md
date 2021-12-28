@@ -41,3 +41,64 @@ To run the server use:
 ```bash
 uvicorn mock_server:app --host 0.0.0.0 --port 8000
 ```
+
+## Docker image
+If you want to use a Docker image, you can follow these steps.
+
+Build the docker image with:
+```bash
+docker build --tag mock_server_image .
+```
+
+Note that if you changed the location of the datasets, you will have to change
+the path in the `Dockerfile`.
+
+To check the available docker images, use:
+```bash
+docker image ls
+```
+
+In case you want to remove the created image you can use:
+```bash
+docker image rm mock_server_image
+```
+
+Finally, to run the mock server with a persistent database, use:
+```bash
+docker run --detach --name mock_server --publish 8000:8000 --volume mock_server_db:/app/database/ mock_server_image
+```
+
+The `--detach` option makes the container run in the background. If you want to
+see the terminal output directly, you can remove it.
+
+Another way to look at the logs of the container when using the `--detach` option
+is to use:
+```bash
+docker logs mock_server
+```
+
+To check the status of all the containers, use:
+```bash
+docker ps --all
+```
+
+To check the resources used by the container, use:
+```bash
+docker stats mock_server
+```
+
+To stop the container, use:
+```bash
+docker stop --time 2 mock_server
+```
+
+To remove the container, use:
+```bash
+docker rm mock_server
+```
+
+In case a container failed (it is stopped now) and you want to run it again, you will have to
+remove it. You can remove with the previous commando or, you can prune all stopped instances with:
+```bash
+docker container prune
+```
