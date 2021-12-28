@@ -16,5 +16,3 @@ dependencies:
     - uvicorn[standard]
     - fastapi>=0.70.1,<0.71.0
     - databases[sqlite]
-    - httpx
-    - gunicorn
