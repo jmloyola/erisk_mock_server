@@ -1,3 +1,4 @@
+# Dockerfile based on this: https://pythonspeed.com/articles/activate-conda-dockerfile/
 FROM continuumio/miniconda3
 
 WORKDIR /app
@@ -20,8 +21,9 @@ COPY datasets datasets
 # Create the directory for the database
 RUN mkdir -p /app/database
 
-# The code to run when container is started:
+# Copy the source code
 COPY mock_server.py .
 COPY config.py .
 COPY performance_measures.py .
+# Command to run when container is started
 ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "erisk_mock_server", "uvicorn", "mock_server:app", "--host", "0.0.0.0", "--port", "8000"]

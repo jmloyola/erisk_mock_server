@@ -65,7 +65,8 @@ docker image rm mock_server_image
 
 Finally, to run the mock server with a persistent database, use:
 ```bash
-docker run --detach --name mock_server --publish 8000:8000 --volume mock_server_db:/app/database/ mock_server_image
+docker run --detach --name mock_server --publish 8000:8000 \
+    --volume mock_server_db:/app/database/ mock_server_image
 ```
 
 The `--detach` option makes the container run in the background. If you want to
