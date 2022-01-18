@@ -197,6 +197,11 @@ async def get_team_information(token: str):
 
 @app.on_event("startup")
 async def startup():
+    # If the folder for the database does not exists, create it.
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    dataset_path = os.path.join(current_path, "database")
+    os.makedirs(dataset_path, exist_ok=True)
+
     await database.connect()
 
     result = await database.fetch_one(query="""PRAGMA foreign_keys""")
