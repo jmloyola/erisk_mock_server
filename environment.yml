@@ -7,7 +7,6 @@ dependencies:
   - numpy>=1.19.0,<2.0.0
   - python=3.7
   - flake8
-  - pytest
   - pre-commit
   - pip
   - pip:
@@ -16,3 +15,4 @@ dependencies:
     - uvicorn[standard]
     - fastapi>=0.70.1,<0.71.0
     - databases[sqlite]
+    - httpx
