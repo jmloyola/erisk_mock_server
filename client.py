@@ -111,13 +111,12 @@ async def get_writings(base_url, server_task, team_token):
 
 async def post_team_responses(base_url, server_task, team_token, team_runs, json_data):
     """Post the response for all the team's runs."""
-    results = await asyncio.gather(
+    _ = await asyncio.gather(
         *[
             post_response(base_url, server_task, team_token, i, json_data)
             for i in range(team_runs)
         ]
     )
-    print(f"results: {[r[0].json() for r in results]}")
 
 
 async def post_response(base_url, server_task, team_token, run_id, json_data):
@@ -212,7 +211,6 @@ if __name__ == "__main__":
     new_json_response = get_response.json()
 
     USERS_NICKNAMES = get_users_nicknames(json_data=new_json_response)
-    print(f"USERS_NICKNAMES: {USERS_NICKNAMES}")
 
     initial_response_number = int(new_json_response[0]["number"])
     current_response_number = initial_response_number
