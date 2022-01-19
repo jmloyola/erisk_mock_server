@@ -2,7 +2,6 @@ import argparse
 import httpx
 import asyncio
 import sys
-import time
 
 
 GET_TIMEOUT_LIMIT = 240
@@ -29,38 +28,6 @@ def random_team_response(json_file):
         d = {"nick": subject_dict["nick"], "decision": 1, "score": 1.0}
         response.append(d)
     return response
-
-
-def request_retry(url, kind="get", json_data=None):
-    request_status_code = 400
-    r = None
-    while request_status_code != 200:
-        try:
-            if kind == "get":
-                r = httpx.get(url, timeout=GET_TIMEOUT_LIMIT)
-            elif kind == "post":
-                r = httpx.post(url, json=json_data, timeout=POST_TIMEOUT_LIMIT)
-            else:
-                print("This functions only accepts GET or POST requests")
-                return None
-            request_status_code = r.status_code
-        except httpx.exceptions.Timeout:
-            print(
-                f"The request took longer than "
-                f'{GET_TIMEOUT_LIMIT if kind == "get" else POST_TIMEOUT_LIMIT} seconds'
-            )
-            request_status_code = 408
-        except httpx.exceptions.ConnectionError:
-            print(
-                "Connection Error. It might be that the maximum number of retries with the URL has "
-                "been exceeded"
-            )
-            request_status_code = 429
-
-        if request_status_code != 200:
-            print("The request failed, trying again...")
-            time.sleep(5)
-    return r, request_status_code
 
 
 async def create_new_team(base_url, team_data):
@@ -105,7 +72,7 @@ async def get_writings(base_url, server_task, team_token):
         if request_status_code != 200:
             print("The request failed, trying again...")
             number_tries += 1
-            time.sleep(5)
+            asyncio.sleep(5)
     return response, request_status_code
 
 
@@ -147,7 +114,7 @@ async def post_response(base_url, server_task, team_token, run_id, json_data):
         if request_status_code != 200:
             print("The request failed, trying again...")
             number_tries += 1
-            time.sleep(5)
+            asyncio.sleep(5)
     return response, request_status_code
 
 
@@ -231,27 +198,6 @@ if __name__ == "__main__":
                 model_response,
             )
         )
-        """
-        results = asyncio.gather(
-            *[
-                post_response(
-                    base_url, args.server_task, args.team_token, i, model_response
-                )
-                for i in range(args.team_runs)
-            ]
-        )
-        print(f"results: {results}")
-        """
-        """
-        for i in range(args.team_runs):
-            _, status_code = asyncio.run(
-                post_response(base_url, args.server_task, args.team_token, i, model_response)
-            )
-
-            if status_code != 200:
-                print("POST request failed. Aborting script...")
-                sys.exit()
-        """
 
         last_json_response = new_json_response
 
