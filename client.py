@@ -90,22 +90,24 @@ async def get_writings(base_url, server_task, team_token):
 
         if request_status_code != 200:
             print(
-                f"WARNING: The request failed, trying again. Current attempt number: {number_tries}."
+                f"WARNING: The request failed, trying again. Current attempt number: {number_tries + 1}."
             )
             number_tries += 1
-            asyncio.sleep(5)
+            await asyncio.sleep(5)
     return response, request_status_code
 
 
 async def post_team_responses(base_url, server_task, team_token, team_runs, json_data):
     """Post the response for all the team's runs."""
-    _ = await asyncio.gather(
+    responses = await asyncio.gather(
         *[
             post_response(base_url, server_task, team_token, i, json_data)
             for i in range(team_runs)
         ]
     )
-    # TODO: Controlar que los requests hayan sido exitosos
+    # Get the status code of all the POSTs.
+    responses_status_code = [r[1] for r in responses]
+    return responses_status_code
 
 
 async def post_response(base_url, server_task, team_token, run_id, json_data):
@@ -137,10 +139,10 @@ async def post_response(base_url, server_task, team_token, run_id, json_data):
 
         if request_status_code != 200:
             print(
-                f"WARNING: The request failed, trying again. Current attempt number: {number_tries}."
+                f"WARNING: The request failed, trying again. Current attempt number: {number_tries + 1}."
             )
             number_tries += 1
-            asyncio.sleep(5)
+            await asyncio.sleep(5)
     return response, request_status_code
 
 
@@ -215,7 +217,7 @@ if __name__ == "__main__":
         and (current_response_number - initial_response_number) < args.number_posts
     ):
         print(f">> Post number being processed: {current_response_number + 1}.")
-        asyncio.run(
+        responses_status_code = asyncio.run(
             post_team_responses(
                 base_url,
                 args.server_task,
@@ -224,6 +226,10 @@ if __name__ == "__main__":
                 model_response,
             )
         )
+        responses_status_are_200 = [r == 200 for r in responses_status_code]
+        if not all(responses_status_are_200):
+            print("ERROR: At least one of the POST requests failed. Aborting script.")
+            sys.exit()
 
         last_json_response = new_json_response
 
