@@ -1,3 +1,21 @@
+"""
+Simple client to consume the mock server API.
+Copyright (C) 2022 Juan Martín Loyola
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License version 3 as
+published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
+
 import argparse
 import httpx
 import asyncio
@@ -13,7 +31,7 @@ def get_users_nicknames(json_data):
     """Get the users nicknames from the first call to the get writings endpoint."""
     if int(json_data[0]["number"]) != 0:
         raise Exception(
-            "The function `get_users_nicknames` should have been called the first time you asked "
+            "ERROR: The function `get_users_nicknames` should have been called the first time you asked "
             "for writings."
         )
     users_nicknames = []
@@ -23,6 +41,7 @@ def get_users_nicknames(json_data):
 
 
 def random_team_response(json_file):
+    """Generate a random response for every user."""
     response = []
     for subject_dict in json_file:
         d = {"nick": subject_dict["nick"], "decision": 1, "score": 1.0}
@@ -31,15 +50,15 @@ def random_team_response(json_file):
 
 
 async def create_new_team(base_url, team_data):
-    """Create the team. If it already exists, exit from the script with error."""
+    """Create a new team. If it already exists, exit from the script with error."""
     print("Creating a new team.")
     async with httpx.AsyncClient(base_url=base_url) as client:
         response = await client.post("/teams/new", json=team_data)
         if response.status_code == 200:
-            print(f"The POST response is: {response.json()}.")
+            print(f"The new team stored information is: {response.json()}.")
         else:
             print(
-                f"The team ({team_data}) already exists in the database. Either create a new team, or "
+                f"ERROR: The team ({team_data}) already exists in the database. Either create a new team, or "
                 "delete the database."
             )
             sys.exit()
@@ -60,17 +79,19 @@ async def get_writings(base_url, server_task, team_token):
                 )
             request_status_code = response.status_code
         except httpx.TimeoutException:
-            print(f"The request took longer than {GET_TIMEOUT_LIMIT} seconds")
+            print(f"WARNING: The request took longer than {GET_TIMEOUT_LIMIT} seconds.")
             request_status_code = 408
         except httpx.ConnectError:
             print(
-                "Connection Error. It might be that the maximum number of retries with the URL has "
-                "been exceeded"
+                "WARNING: Connection Error. It might be that the maximum number of retries with the URL has "
+                "been exceeded."
             )
             request_status_code = 429
 
         if request_status_code != 200:
-            print("The request failed, trying again...")
+            print(
+                f"WARNING: The request failed, trying again. Current attempt number: {number_tries}."
+            )
             number_tries += 1
             asyncio.sleep(5)
     return response, request_status_code
@@ -84,6 +105,7 @@ async def post_team_responses(base_url, server_task, team_token, team_runs, json
             for i in range(team_runs)
         ]
     )
+    # TODO: Controlar que los requests hayan sido exitosos
 
 
 async def post_response(base_url, server_task, team_token, run_id, json_data):
@@ -102,17 +124,21 @@ async def post_response(base_url, server_task, team_token, run_id, json_data):
                 )
             request_status_code = response.status_code
         except httpx.TimeoutException:
-            print(f"The request took longer than {POST_TIMEOUT_LIMIT} seconds")
+            print(
+                f"WARNING: The request took longer than {POST_TIMEOUT_LIMIT} seconds."
+            )
             request_status_code = 408
         except httpx.ConnectError:
             print(
-                "Connection Error. It might be that the maximum number of retries with the URL has "
-                "been exceeded"
+                "WARNING: Connection Error. It might be that the maximum number of retries with the URL has "
+                "been exceeded."
             )
             request_status_code = 429
 
         if request_status_code != 200:
-            print("The request failed, trying again...")
+            print(
+                f"WARNING: The request failed, trying again. Current attempt number: {number_tries}."
+            )
             number_tries += 1
             asyncio.sleep(5)
     return response, request_status_code
@@ -145,14 +171,14 @@ if __name__ == "__main__":
 
     if args.team_token is None or args.team_name is None or args.team_runs is None:
         print(
-            "You should specify all the options to run the script. For information on how to call the "
-            "script, run `python -m client --help`"
+            "ERROR: You should specify all the options to run the script. For information on how to call the "
+            "script, run `python -m client --help`."
         )
         sys.exit()
 
     base_url = f"http://localhost:{args.port}"
     print(
-        f"Connecting to the mock server for the task {args.server_task} at {base_url}"
+        f"Connecting to the mock server for the task {args.server_task} at {base_url}."
     )
 
     team_data = {
@@ -172,7 +198,7 @@ if __name__ == "__main__":
     )
 
     if status_code != 200:
-        print("GET request failed. Aborting script...")
+        print("ERROR: GET request failed. Aborting script.")
         sys.exit()
 
     new_json_response = get_response.json()
@@ -188,7 +214,7 @@ if __name__ == "__main__":
         new_json_response != last_json_response
         and (current_response_number - initial_response_number) < args.number_posts
     ):
-        print(f">> Post number being processed: {current_response_number + 1}")
+        print(f">> Post number being processed: {current_response_number + 1}.")
         asyncio.run(
             post_team_responses(
                 base_url,
@@ -206,7 +232,7 @@ if __name__ == "__main__":
         )
 
         if status_code != 200:
-            print("GET request failed. Aborting script...")
+            print("ERROR: GET request failed. Aborting script.")
             sys.exit()
 
         new_json_response = get_response.json()
@@ -225,6 +251,6 @@ if __name__ == "__main__":
         and new_json_response != last_json_response
         and (current_response_number - initial_response_number) == args.number_posts
     ):
-        print(f"Reached the number of posts limit ({args.number_posts} posts)")
+        print(f"Reached the number of posts limit ({args.number_posts} posts).")
 
-    print("End of script")
+    print("End of script.")

@@ -1,3 +1,21 @@
+"""
+Mock server for the eRisk challenge (https://erisk.irlab.org/).
+Copyright (C) 2022 Juan Martín Loyola
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License version 3 as
+published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
+
 import os
 import json
 import sqlite3
@@ -195,7 +213,7 @@ async def get_task_id(task: TaskName):
 
 
 async def get_team_information(token: str):
-    """Get the team_id, name and number of runs of the team with the given token."""
+    """Get the team id, name and number of runs of the team with the given token."""
     query = """SELECT team_id, name, number_runs FROM teams WHERE token=:token"""
     result = await database.fetch_one(query=query, values={"token": token})
     if result is None:
@@ -211,9 +229,7 @@ async def get_team_information(token: str):
 @app.on_event("startup")
 async def startup():
     # If the folder for the database does not exists, create it.
-    current_path = os.path.dirname(os.path.abspath(__file__))
-    dataset_path = os.path.join(current_path, "database")
-    os.makedirs(dataset_path, exist_ok=True)
+    os.makedirs("database", exist_ok=True)
 
     await database.connect()
 
@@ -255,7 +271,7 @@ async def startup():
 
 
 def median(num_posts):
-    """ "Median of the numbers' list."""
+    """Median of the numbers' list."""
     num_posts.sort()
     m = len(num_posts) // 2
     if (len(num_posts) % 2) == 0:
@@ -300,14 +316,14 @@ def load_writings(task: TaskName):
                     }
                 )
                 j += 1
-    print(f"The number of users for {task.value} is {len(subjects)}")
-    print(f"The maximum number of posts for {task.value} is {len(writings)}")
+    print(f"The number of users for {task.value} is {len(subjects)}.")
+    print(f"The maximum number of posts for {task.value} is {len(writings)}.")
 
     # Get median number of posts
     num_posts = [v["num_posts"] for k, v in subjects.items()]
     MEDIAN_NUMBER_POSTS[task.value] = median(num_posts)
     print(
-        f"The median number of posts for {task.value} is {MEDIAN_NUMBER_POSTS[task.value]}"
+        f"The median number of posts for {task.value} is {MEDIAN_NUMBER_POSTS[task.value]}."
     )
 
 
@@ -356,10 +372,10 @@ async def get_all_finished_teams(task: TaskName):
     query = """
         SELECT teams.*
         FROM teams, runs_status, tasks
-        WHERE teams.team_id = runs_status.team_id AND
-              tasks.task = :task AND
-              runs_status.task_id = tasks.task_id AND
-              runs_status.has_finished = 1
+        WHERE teams.team_id=runs_status.team_id AND
+              tasks.task=:task AND
+              runs_status.task_id=tasks.task_id AND
+              runs_status.has_finished=1
     """
     results = await database.fetch_all(query=query, values={"task": task.value})
 
@@ -385,7 +401,6 @@ async def create_team(team: TeamIn):
     ```
     """
     query = """INSERT INTO teams(name, token, number_runs) VALUES (:name, :token, :number_runs)"""
-    # values = {"name": team.name, "token": team.token, "number_runs": team.number_runs}
     values = team.dict()
 
     try:
@@ -398,7 +413,7 @@ async def create_team(team: TeamIn):
         )
     else:
         # If the team creation is successful, initialize the run status.
-        # For that obtain the id of the tasks and the id of the team.
+        # For that, obtain the id of the tasks and the id of the team.
         query = """SELECT task_id FROM tasks"""
         results = await database.fetch_all(query=query)
         task_id_list = [i["task_id"] for i in results]
@@ -440,7 +455,7 @@ async def get_team(token: str):
     curl -X GET "localhost:8000/teams/777"
     ```
     """
-    query = """SELECT * FROM teams WHERE token = :token"""
+    query = """SELECT * FROM teams WHERE token=:token"""
     result = await database.fetch_one(query=query, values={"token": token})
 
     if result is None:
@@ -477,7 +492,7 @@ async def get_writings(task: TaskName, token: str):
     curl -X GET "localhost:8000/gambling/getwritings/777"
     ```
     """
-    # Get the task_id
+    # Get the task_id.
     task_id = await get_task_id(task)
 
     # Get the team_id and number of runs.
@@ -502,8 +517,8 @@ async def get_writings(task: TaskName, token: str):
     current_post_number = result["current_post_number"]
     writings = WRITINGS[task.value]
 
-    # If the current post number is equal to the number of writings for the task, means that the team has ended
-    # processing the input.
+    # If the current post number is equal to the number of writings for the task, it means that the team has
+    # ended processing the input.
     if current_post_number == len(writings):
         print(f"The team {team_id} has ended processing the writings for {task.value}.")
         return []
@@ -526,7 +541,7 @@ async def get_writings(task: TaskName, token: str):
         results = await database.fetch_all(query=query, values=values)
 
         # When fetch_all is empty the result is not None, instead it is an empty list.
-        # When don't need to check if results is None.
+        # We don't need to check if results is None.
         if len(results) != number_runs:
             is_last_response_complete = False
     new_post_number = (
@@ -587,11 +602,12 @@ async def get_writings(task: TaskName, token: str):
 
 
 async def calculate_results(team_id: int, number_runs: int, task: TaskName):
+    """Calculate performance for a team's run."""
     global SUBJECTS, MEDIAN_NUMBER_POSTS
     subjects = SUBJECTS[task.value]
     median_number_post = MEDIAN_NUMBER_POSTS[task.value]
 
-    # Get the task_id
+    # Get the task_id.
     task_id = await get_task_id(task)
 
     for i in range(number_runs):
@@ -619,7 +635,7 @@ async def calculate_results(team_id: int, number_runs: int, task: TaskName):
 
             for response_data in json_response:
                 if response_data.nick not in subjects_predictions:
-                    # Initialize the subject label as negative
+                    # Initialize the subject label as negative.
                     subjects_predictions[response_data.nick] = {
                         "label": 0,
                     }
@@ -743,7 +759,7 @@ async def get_all_results(task: TaskName):
     curl -X GET "localhost:8000/results/gambling/all"
     ```
     """
-    # Get the task_id
+    # Get the task_id.
     task_id = await get_task_id(task)
 
     query = """SELECT * FROM results WHERE task_id=:task_id"""
@@ -797,11 +813,13 @@ async def get_team_results(task: TaskName, token: str):
 
 
 def encode_response_as_bytes(response: List[ResponseData]):
+    """Encode team response as bytes."""
     r = [data.dict() for data in response]
     return json.dumps(r).encode("utf-8")
 
 
 def decode_bytes_response(encoded_response: bytes):
+    """Decode team response as a list of ResponseData."""
     r = json.loads(encoded_response)
     response = [ResponseData(**data) for data in r]
     return response
@@ -822,11 +840,11 @@ def check_if_response_complete(response: List[ResponseData], task: TaskName):
                 subjects_already_counted.append(nick)
             else:
                 print(
-                    f'The response has multiple entries for nick "{nick}" for {task.value}.'
+                    f'The response has multiple entries for nick "{nick}" in {task.value}.'
                 )
         else:
             print(
-                f'The nick "{nick}" does not correspond to a subject for {task.value}.'
+                f'The nick "{nick}" does not correspond to a subject in {task.value}.'
             )
     return number_subjects_in_response == len(subjects)
 
@@ -870,7 +888,7 @@ async def post_response(
             detail=f"Invalid run_id {run_id} for token '{token}'.",
         )
 
-    # Get the current_post_number
+    # Get the current_post_number.
     query = """
         SELECT current_post_number, has_finished
         FROM runs_status
@@ -884,7 +902,7 @@ async def post_response(
     has_finished = result["has_finished"]
 
     # If the team has already finished sending responses for the task, we don't
-    # do anything
+    # do anything.
     if has_finished:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -892,7 +910,7 @@ async def post_response(
             f"{task.value}.",
         )
 
-    # If the has not asked for writings, they can not send a response.
+    # If the has not asked for writings, they can't send a response.
     if current_post_number == -1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -917,7 +935,7 @@ async def post_response(
     result = await database.fetch_one(query=query, values=values)
 
     if result is None:
-        # There is no response yet
+        # There is no response yet.
         is_response_complete = check_if_response_complete(response, task)
         if is_response_complete:
             # We insert the value in the database.
@@ -954,10 +972,11 @@ async def post_response(
 async def get_model_response_for_user(
     team_id: int, task: TaskName, internal_run_id: int, user_id: str
 ):
+    """Get the score, label and delay from a particular run of a team given to a user."""
     global SUBJECTS
     subjects = SUBJECTS[task.value]
 
-    # Get the task_id
+    # Get the task_id.
     task_id = await get_task_id(task)
 
     query = """
@@ -1000,7 +1019,7 @@ async def get_model_response_for_user(
                     label = 0
                     delay = current_post_number
                     finished_processing_user_posts = True
-                # When we found the user, we don't need to look for the others
+                # When we found the user, we don't need to look for the others.
                 break
         if finished_processing_user_posts:
             break
@@ -1014,6 +1033,7 @@ async def get_model_response_for_user(
     response_description="Graph the team's models final separation plots.",
 )
 async def graph_final_separation_plot(task: TaskName, token: str):
+    """Graph the final separation plot of a team for a task."""
     global WRITINGS
     writings = WRITINGS[task.value]
     max_number_posts = len(writings)
@@ -1028,15 +1048,16 @@ async def graph_final_separation_plot(task: TaskName, token: str):
     response_description="Graph the team's models separation plots at a given time.",
 )
 async def graph_separation_plot(task: TaskName, token: str, time: int):
+    """Graph the separation plot of a team for a task in a given time."""
     global SUBJECTS, WRITINGS
     subjects = SUBJECTS[task.value]
     writings = WRITINGS[task.value]
     max_number_posts = len(writings)
 
-    # Get the team information
+    # Get the team information.
     team_id, name, number_runs = await get_team_information(token)
 
-    # Get the task_id
+    # Get the task_id.
     task_id = await get_task_id(task)
 
     # Check if the time given is valid.
@@ -1108,6 +1129,7 @@ async def graph_separation_plot(task: TaskName, token: str, time: int):
     response_description="Graph the model's score given to a random user.",
 )
 async def graph_score_random_user(task: TaskName, token: str, run_id: int):
+    """Graph a random user's score evolution of a team's run for a task."""
     global SUBJECTS
     subjects = SUBJECTS[task.value]
 
@@ -1125,6 +1147,7 @@ async def graph_score_random_user(task: TaskName, token: str, run_id: int):
     response_description="Graph the model's score given to a user.",
 )
 async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int):
+    """Graph a user's score evolution of a team's run for a task."""
     global SUBJECTS
     subjects = SUBJECTS[task.value]
     team_id, name, number_runs = await get_team_information(token)
