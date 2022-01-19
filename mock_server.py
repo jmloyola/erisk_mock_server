@@ -1,6 +1,7 @@
 import os
 import json
 import sqlite3
+import datetime
 from enum import Enum
 from typing import List
 from random import choice
@@ -129,6 +130,16 @@ CREATE_TABLE_RUNS_STATUS = """
         FOREIGN KEY (team_id) REFERENCES teams(team_id),
         FOREIGN KEY (task_id) REFERENCES tasks(task_id)
     );"""
+CREATE_TABLE_GET_WRITINGS_REQUESTS = """
+    CREATE TABLE IF NOT EXISTS get_writings_requests(
+        team_id INTEGER,
+        task_id INTEGER,
+        current_post_number INTEGER,
+        request_time INTEGER,
+        PRIMARY KEY (team_id, task_id, current_post_number),
+        FOREIGN KEY (team_id) REFERENCES teams(team_id),
+        FOREIGN KEY (task_id) REFERENCES tasks(task_id)
+    );"""
 CREATE_TABLE_RESPONSES = """
     CREATE TABLE IF NOT EXISTS responses(
         team_id INTEGER,
@@ -136,6 +147,7 @@ CREATE_TABLE_RESPONSES = """
         run_id INTEGER,
         current_post_number INTEGER,
         json_response BLOB,
+        response_time INTEGER,
         PRIMARY KEY (team_id, task_id, run_id, current_post_number),
         FOREIGN KEY (team_id) REFERENCES teams(team_id),
         FOREIGN KEY (task_id) REFERENCES tasks(task_id)
@@ -168,6 +180,7 @@ TABLES_CREATION_QUERIES = [
     CREATE_TABLE_TEAMS,
     CREATE_TABLE_TASK,
     CREATE_TABLE_RUNS_STATUS,
+    CREATE_TABLE_GET_WRITINGS_REQUESTS,
     CREATE_TABLE_RESPONSES,
     CREATE_TABLE_RESULTS,
 ]
@@ -538,6 +551,20 @@ async def get_writings(task: TaskName, token: str):
             print(
                 f"A new set of writings was given to team {team_id} for {task.value}."
             )
+            # Insert the time of the request in the database.
+            query = """
+                INSERT INTO get_writings_requests(
+                    team_id, task_id, current_post_number, request_time
+                )
+                VALUES (:team_id, :task_id, :current_post_number, :request_time)
+            """
+            values = {
+                "team_id": team_id,
+                "task_id": task_id,
+                "current_post_number": new_post_number,
+                "request_time": int(datetime.datetime.now().timestamp()),
+            }
+            await database.execute(query=query, values=values)
         query = """
             UPDATE runs_status
             SET current_post_number=:current_post_number, has_finished=:has_finished
@@ -895,8 +922,10 @@ async def post_response(
         if is_response_complete:
             # We insert the value in the database.
             query = """
-                INSERT INTO responses(team_id, task_id, run_id, current_post_number, json_response)
-                VALUES (:team_id, :task_id, :run_id, :current_post_number, :json_response)
+                INSERT INTO responses(
+                    team_id, task_id, run_id, current_post_number, json_response, response_time
+                )
+                VALUES (:team_id, :task_id, :run_id, :current_post_number, :json_response, :response_time)
             """
             values = {
                 "team_id": team_id,
@@ -904,6 +933,7 @@ async def post_response(
                 "run_id": internal_run_id,
                 "current_post_number": current_post_number,
                 "json_response": encode_response_as_bytes(response),
+                "response_time": int(datetime.datetime.now().timestamp()),
             }
             await database.execute(query=query, values=values)
         else:
@@ -912,7 +942,7 @@ async def post_response(
                 detail=f"The current response for {task.value} is not complete.",
             )
     else:
-        # There is a complete response already. Don't do nothing with the request.
+        # There is a complete response already. Don't do anything with the request.
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"The team {team_id} has already sent a response for "
