@@ -969,69 +969,6 @@ async def post_response(
     return response
 
 
-async def get_model_response_for_user(
-    team_id: int, task: TaskName, internal_run_id: int, user_id: str
-):
-    """Get the score, label and delay from a particular run of a team given to a user."""
-    global SUBJECTS
-    subjects = SUBJECTS[task.value]
-
-    # Get the task_id.
-    task_id = await get_task_id(task)
-
-    query = """
-        SELECT json_response, current_post_number
-        FROM responses
-        WHERE team_id=:team_id AND
-            task_id=:task_id AND
-            run_id=:run_id
-    """
-    values = {
-        "team_id": team_id,
-        "task_id": task_id,
-        "run_id": internal_run_id,
-    }
-
-    scores = []
-    label = 0
-    delay = -1
-    finished_processing_user_posts = False
-    async for row in database.iterate(query=query, values=values):
-        encoded_json_response = row["json_response"]
-        json_response = decode_bytes_response(encoded_json_response)
-        current_post_number = row["current_post_number"]
-        # Since the API externally starts counting from 1, we have to sum one.
-        current_post_number = current_post_number + 1
-
-        for response_data in json_response:
-            if response_data.nick == user_id:
-                scores.append(response_data.score)
-                # When the user is first classified as positive, we set the corresponding label and delay.
-                if (response_data.decision == 1) and (label == 0):
-                    label = 1
-                    delay = current_post_number
-
-                # If the user has not been label as positive and her posts are finished,
-                # we set the corresponding delay.
-                if (label == 0) and (
-                    subjects[response_data.nick]["num_posts"] == current_post_number
-                ):
-                    label = 0
-                    delay = current_post_number
-                    finished_processing_user_posts = True
-                # When we found the user, we don't need to look for the others.
-                break
-        if finished_processing_user_posts:
-            break
-    # If there was no data for that run_id, raise an error.
-    if not scores:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"The team has not sent any response for {task.value} for the run {internal_run_id}.",
-        )
-    return scores, label, delay
-
-
 @app.get(
     "/graph/{task}/separation_plot/{token}",
     status_code=status.HTTP_200_OK,
@@ -1110,6 +1047,7 @@ async def graph_separation_plot(task: TaskName, token: str, time: int):
         run_scores = [subjects_scores[nick] for nick in subjects.keys()]
         scores.append(run_scores)
 
+    # Graph the results.
     fig, ax = plt.subplots(nrows=number_runs, ncols=1)
     for i in range(number_runs):
         az.plot_separation(
@@ -1126,6 +1064,69 @@ async def graph_separation_plot(task: TaskName, token: str, time: int):
     buf.seek(0)
 
     return StreamingResponse(buf, media_type="image/png")
+
+
+async def get_model_response_for_user(
+    team_id: int, task: TaskName, internal_run_id: int, user_id: str
+):
+    """Get the score, label and delay from a particular run of a team given to a user."""
+    global SUBJECTS
+    subjects = SUBJECTS[task.value]
+
+    # Get the task_id.
+    task_id = await get_task_id(task)
+
+    query = """
+        SELECT json_response, current_post_number
+        FROM responses
+        WHERE team_id=:team_id AND
+            task_id=:task_id AND
+            run_id=:run_id
+    """
+    values = {
+        "team_id": team_id,
+        "task_id": task_id,
+        "run_id": internal_run_id,
+    }
+
+    scores = []
+    label = 0
+    delay = -1
+    finished_processing_user_posts = False
+    async for row in database.iterate(query=query, values=values):
+        encoded_json_response = row["json_response"]
+        json_response = decode_bytes_response(encoded_json_response)
+        current_post_number = row["current_post_number"]
+        # Since the API externally starts counting from 1, we have to sum one.
+        current_post_number = current_post_number + 1
+
+        for response_data in json_response:
+            if response_data.nick == user_id:
+                scores.append(response_data.score)
+                # When the user is first classified as positive, we set the corresponding label and delay.
+                if (response_data.decision == 1) and (label == 0):
+                    label = 1
+                    delay = current_post_number
+
+                # If the user has not been label as positive and her posts are finished,
+                # we set the corresponding delay.
+                if (label == 0) and (
+                    subjects[response_data.nick]["num_posts"] == current_post_number
+                ):
+                    label = 0
+                    delay = current_post_number
+                    finished_processing_user_posts = True
+                # When we found the user, we don't need to look for the others.
+                break
+        if finished_processing_user_posts:
+            break
+    # If there was no data for that run_id, raise an error.
+    if not scores:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"The team has not sent any response for {task.value} for the run {internal_run_id}.",
+        )
+    return scores, label, delay
 
 
 @app.get(
@@ -1174,6 +1175,7 @@ async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int
         team_id, task, internal_run_id, user_id
     )
 
+    # Graph the results.
     fig, ax = plt.subplots(nrows=1, ncols=1)
     x = list(range(1, num_posts + 1))
     ax.plot(x, scores[:num_posts])
@@ -1188,6 +1190,79 @@ async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int
         alpha=0.8,
     )
     ax.set_title(f'Score for user "{user_id}" in {task.value}\n{name} - run: {run_id}')
+
+    # create a buffer to store image data
+    buf = BytesIO()
+    fig.savefig(buf, dpi=300, format="png")
+    buf.seek(0)
+
+    return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get(
+    "/graph/{task}/teams_elapsed_time",
+    status_code=status.HTTP_200_OK,
+    tags=["graphs"],
+    response_description="Graph the elapsed time from all the teams that had finished processing the input.",
+)
+async def graph_teams_elapsed_time(task: TaskName):
+    """Graph the elapsed time from all the teams that had finished processing the input."""
+    global WRITINGS
+    writings = WRITINGS[task.value]
+    max_number_posts = len(writings)
+
+    # Get the task_id.
+    task_id = await get_task_id(task)
+
+    # Get the teams that had finished processing the input.
+    finished_teams = await get_all_finished_teams(task)
+
+    # If there is no team that have finished processing the input, we raise an error.
+    if not (finished_teams):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Currently, there is no team that have finished processing the input for {task.value}.",
+        )
+
+    # Get the difference of elapsed times from the last POST and the first GET
+    # for every team that have finished processing the input.
+    # Note that we had to "hack" the way we indicated the teams that had finished
+    # in the SQL query.
+    query = f"""
+        SELECT t.team_id, name, (last_post_time - first_get_time) as elapsed_time
+        FROM teams as t, (
+            SELECT g.team_id, request_time as first_get_time, MAX(response_time) as last_post_time
+            FROM get_writings_requests as g, responses as r
+            WHERE g.team_id = r.team_id AND
+                g.task_id = r.task_id AND
+                g.task_id = :task_id AND
+                g.current_post_number = 0 AND
+                r.current_post_number = :last_post_number AND
+                g.team_id IN ({', '.join([":team"+str(i) for i in range(len(finished_teams))])})
+            GROUP BY g.team_id
+        ) as e
+        WHERE t.team_id=e.team_id
+    """
+    finished_teams_dict = {
+        "team" + str(i): finished_teams[i].team_id for i in range(len(finished_teams))
+    }
+    values = {
+        "task_id": task_id,
+        "last_post_number": max_number_posts - 1,
+    }
+    values = {**values, **finished_teams_dict}
+
+    results = await database.fetch_all(query=query, values=values)
+    names = [i["name"] for i in results]
+    elapsed_times = [i["elapsed_time"] for i in results]
+
+    # Graph the results.
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    ax.bar(names, elapsed_times)
+
+    fig.suptitle(
+        f"Elapsed time from teams that have finished\n{task.value}", fontsize=17
+    )
 
     # create a buffer to store image data
     buf = BytesIO()
