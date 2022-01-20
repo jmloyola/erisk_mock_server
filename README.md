@@ -17,6 +17,7 @@ Besides those, the mock servers can:
 - Graph separation plot for a given team and time.
 - Graph score evolution for a given user, team and run.
 - Graph score evolution of a random users for a given team and run.
+- Graph the elapsed time from all the teams that had finished processing the input.
 
 ## Environment set up
 To set up the environment we used [miniconda](https://docs.conda.io/en/latest/miniconda.html).
