@@ -1023,6 +1023,12 @@ async def get_model_response_for_user(
                 break
         if finished_processing_user_posts:
             break
+    # If there was no data for that run_id, raise an error.
+    if not scores:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"The team has not sent any response for {task.value} for the run {internal_run_id}.",
+        )
     return scores, label, delay
 
 
@@ -1095,7 +1101,7 @@ async def graph_separation_plot(task: TaskName, token: str, time: int):
             for response_data in json_response:
                 subjects_scores[response_data.nick] = response_data.score
         # If there was no data for that run_id, raise an error.
-        if subjects_scores == {}:
+        if not subjects_scores:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"The team with token '{token}' has not sent the response for {task.value} time "
