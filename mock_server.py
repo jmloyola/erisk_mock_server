@@ -21,11 +21,11 @@ import json
 import sqlite3
 import datetime
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from random import choice
 from io import BytesIO
 
-from fastapi import FastAPI, status, HTTPException
+from fastapi import FastAPI, status, HTTPException, Query
 from databases import Database
 from pydantic import BaseModel, create_model
 from starlette.responses import StreamingResponse
@@ -1189,6 +1189,7 @@ async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int
         label=f"decision delay = {delay}",
         alpha=0.8,
     )
+    ax.legend()
     ax.set_title(f'Score for user "{user_id}" in {task.value}\n{name} - run: {run_id}')
 
     # create a buffer to store image data
@@ -1233,11 +1234,11 @@ async def graph_teams_elapsed_time(task: TaskName):
         FROM teams as t, (
             SELECT g.team_id, request_time as first_get_time, MAX(response_time) as last_post_time
             FROM get_writings_requests as g, responses as r
-            WHERE g.team_id = r.team_id AND
-                g.task_id = r.task_id AND
-                g.task_id = :task_id AND
-                g.current_post_number = 0 AND
-                r.current_post_number = :last_post_number AND
+            WHERE g.team_id=r.team_id AND
+                g.task_id=r.task_id AND
+                g.task_id=:task_id AND
+                g.current_post_number=0 AND
+                r.current_post_number=:last_post_number AND
                 g.team_id IN ({', '.join([":team"+str(i) for i in range(len(finished_teams))])})
             GROUP BY g.team_id
         ) as e
@@ -1254,7 +1255,7 @@ async def graph_teams_elapsed_time(task: TaskName):
 
     results = await database.fetch_all(query=query, values=values)
     names = [i["name"] for i in results]
-    elapsed_times = [i["elapsed_time"] for i in results]
+    elapsed_times = [r["elapsed_time"] for r in results]
 
     # Graph the results.
     fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -1263,6 +1264,128 @@ async def graph_teams_elapsed_time(task: TaskName):
     fig.suptitle(
         f"Elapsed time from teams that have finished\n{task.value}", fontsize=17
     )
+
+    # create a buffer to store image data
+    buf = BytesIO()
+    fig.savefig(buf, dpi=300, format="png")
+    buf.seek(0)
+
+    return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get(
+    "/graph/{task}/elapsed_time/{token}",
+    status_code=status.HTTP_200_OK,
+    tags=["graphs"],
+    response_description="Graph the elapsed time from all the selected runs of a team.",
+)
+async def graph_runs_elapsed_time(
+    task: TaskName, token: str, run: Optional[List[int]] = Query(None)
+):
+    """Graph the elapsed time from all the selected runs of a team.
+
+    If `run is None`, that is, no run ids are given, graph the elapsed
+    time of all the team's runs.
+
+    If you want to indicate the run ids, you can do it using query parameters.
+    That is, at the end of the endpoint add the values of run id you want to
+    graph.
+    If you want to graph the elapsed time of runs 0 and 2, you would use:
+    `?run=0&run=2` at the end of the URL.
+    """
+    # Get the task_id.
+    task_id = await get_task_id(task)
+
+    # Check if the given team has finished processing the input.
+    query = """
+        SELECT teams.team_id, name, teams.number_runs
+        FROM teams, runs_status
+        WHERE teams.team_id=runs_status.team_id AND
+              teams.token=:token AND
+              runs_status.task_id=:task_id AND
+              runs_status.has_finished=1
+    """
+    values = {
+        "token": token,
+        "task_id": task_id,
+    }
+    result = await database.fetch_one(query=query, values=values)
+
+    # If the team didn't finished processing the input, raise an error.
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"The team with token '{token}' have not yet finished processing the input for {task.value}.",
+        )
+    team_id = result["team_id"]
+    team_name = result["name"]
+    number_runs = result["number_runs"]
+
+    # If there is list of run ids, check if they are valid.
+    # If any of them is invalid, raise an error.
+    # Also check if any of the run ids are repeated.
+    if run:
+        if len(set(run)) != len(run):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="There is a repeated run_id in the request.",
+            )
+        for run_id in run:
+            if not (0 <= run_id < number_runs):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Invalid run_id {run_id} for token '{token}'.",
+                )
+    else:
+        run = list(range(number_runs))
+
+    # Increment the run_id value to map from API to database.
+    runs_list = [x + 1 for x in run]
+
+    # Get the difference of elapsed times from each POST and each GET.
+    # Note that we had to "hack" the way we indicated the runs in the SQL query.
+    query = f"""
+        SELECT (response_time - request_time) as elapsed_time
+        FROM get_writings_requests as g, responses as r
+        WHERE g.team_id=r.team_id AND
+            g.team_id=:team_id AND
+            g.task_id=r.task_id AND
+            g.task_id=:task_id AND
+            g.current_post_number=r.current_post_number AND
+            r.run_id IN ({', '.join([":run"+str(i) for i in runs_list])})
+        ORDER BY r.run_id ASC, r.current_post_number ASC
+    """
+
+    runs_dict = {"run" + str(run_id): run_id for run_id in runs_list}
+    values = {
+        "team_id": team_id,
+        "task_id": task_id,
+    }
+    values = {**values, **runs_dict}
+
+    results = await database.fetch_all(query=query, values=values)
+    elapsed_times = [r["elapsed_time"] for r in results]
+
+    # Since we ordered the query results, we can divide the result in chunks
+    # corresponding to each run.
+    elapsed_times_runs = []
+    final_pos = 0
+    len_each_list = len(elapsed_times) // len(runs_list)
+    for _ in runs_list:
+        initial_pos = final_pos
+        final_pos += len_each_list
+        elapsed_times_runs.append(elapsed_times[initial_pos:final_pos])
+
+    # Graph the results.
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    x = list(range(1, len(elapsed_times_runs[0]) + 1))
+    for idx, values in enumerate(elapsed_times_runs):
+        run_id = runs_list[idx] - 1
+        ax.plot(x, values, alpha=0.6, label=f"run = {run_id}")
+    ax.legend()
+    ax.set_xticks(x)
+
+    fig.suptitle(f"Runs elapsed time from team {team_name}\n{task.value}", fontsize=17)
 
     # create a buffer to store image data
     buf = BytesIO()
