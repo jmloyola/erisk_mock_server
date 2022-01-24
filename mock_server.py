@@ -1219,6 +1219,8 @@ async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int
     )
     ax.legend()
     ax.set_title(f'Score for user "{user_id}" in {task.value}\n{name} - run: {run_id}')
+    ax.set_xlabel("Number of publications")
+    ax.set_ylabel("Model score")
 
     # create a buffer to store image data
     buf = BytesIO()
@@ -1299,6 +1301,8 @@ async def graph_teams_elapsed_time(task: TaskName):
     fig.suptitle(
         f"Elapsed time from teams that have finished\n{task.value}", fontsize=17
     )
+    ax.set_xlabel("Teams name")
+    ax.set_ylabel("Total time (seconds)")
 
     # create a buffer to store image data
     buf = BytesIO()
@@ -1425,6 +1429,8 @@ async def graph_runs_elapsed_time(
         ax.plot(x, values, alpha=0.6, label=f"run = {run_id}")
     ax.legend()
     ax.set_xticks(x)
+    ax.set_xlabel("Number of publication")
+    ax.set_ylabel("Time (seconds)")
 
     fig.suptitle(f"Runs elapsed time from team {team_name}\n{task.value}", fontsize=17)
 
