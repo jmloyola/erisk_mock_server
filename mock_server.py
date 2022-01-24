@@ -31,6 +31,7 @@ from pydantic import BaseModel, create_model
 from starlette.responses import StreamingResponse
 import matplotlib.pyplot as plt
 import arviz as az
+import numpy as np
 
 from performance_measures import erde_final, f_latency, value_p, precision_at_k, ndcg
 import config
@@ -1024,6 +1025,7 @@ async def graph_separation_plot(task: TaskName, token: str, time: int):
             detail=f"The task {task.value} has {max_number_posts} posts at most. Thus, the given time "
             f"({time}) is not valid.",
         )
+    is_final_separtion_plot = time == max_number_posts
 
     true_labels = [subjects[nick]["label"] for nick in subjects.keys()]
     scores = []
@@ -1062,15 +1064,21 @@ async def graph_separation_plot(task: TaskName, token: str, time: int):
         scores.append(run_scores)
 
     # Graph the results.
+    true_labels = np.asarray(true_labels)
+    scores = np.asarray(scores)
     fig, ax = plt.subplots(nrows=number_runs, ncols=1)
     for i in range(number_runs):
         az.plot_separation(
             y=true_labels, y_hat=scores[i], y_hat_line=True, legend=False, ax=ax[i]
         )
-        ax[i].get_legend().remove()
         ax[i].set_ylabel(f"#{i}", fontsize=10)
 
-    fig.suptitle(f"Separation plot at time {time} - {task.value}\n{name}", fontsize=17)
+    figure_title = (
+        f"Final separation plot - {task.value}\n{name}"
+        if is_final_separtion_plot
+        else f"Separation plot at time {time} - {task.value}\n{name}"
+    )
+    fig.suptitle(figure_title, fontsize=17)
 
     # create a buffer to store image data
     buf = BytesIO()
