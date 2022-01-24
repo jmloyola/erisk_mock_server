@@ -976,7 +976,14 @@ async def post_response(
     response_description="Graph the team's models final separation plots.",
 )
 async def graph_final_separation_plot(task: TaskName, token: str):
-    """Graph the final separation plot of a team for a task."""
+    """
+    Graph the final separation plot of a team for a task.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/graph/depression/separation_plot/777" --output "elapsed_time_team.png"
+    ```
+    """
     global WRITINGS
     writings = WRITINGS[task.value]
     max_number_posts = len(writings)
@@ -991,7 +998,14 @@ async def graph_final_separation_plot(task: TaskName, token: str):
     response_description="Graph the team's models separation plots at a given time.",
 )
 async def graph_separation_plot(task: TaskName, token: str, time: int):
-    """Graph the separation plot of a team for a task in a given time."""
+    """
+    Graph the separation plot of a team for a task in a given time.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/graph/depression/separation_plot/777/30" --output "elapsed_time_team_at_time.png"
+    ```
+    """
     global SUBJECTS, WRITINGS
     subjects = SUBJECTS[task.value]
     writings = WRITINGS[task.value]
@@ -1136,7 +1150,14 @@ async def get_model_response_for_user(
     response_description="Graph the model's score given to a random user.",
 )
 async def graph_score_random_user(task: TaskName, token: str, run_id: int):
-    """Graph a random user's score evolution of a team's run for a task."""
+    """
+    Graph a random user's score evolution of a team's run for a task.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/graph/depression/random_user/777/1" --output "score_random_user.png"
+    ```
+    """
     global SUBJECTS
     subjects = SUBJECTS[task.value]
 
@@ -1154,7 +1175,14 @@ async def graph_score_random_user(task: TaskName, token: str, run_id: int):
     response_description="Graph the model's score given to a user.",
 )
 async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int):
-    """Graph a user's score evolution of a team's run for a task."""
+    """
+    Graph a user's score evolution of a team's run for a task.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/graph/depression/30/777/1" --output "score_user.png"
+    ```
+    """
     global SUBJECTS
     subjects = SUBJECTS[task.value]
     team_id, name, number_runs = await get_team_information(token)
@@ -1207,7 +1235,14 @@ async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int
     response_description="Graph the elapsed time from all the teams that had finished processing the input.",
 )
 async def graph_teams_elapsed_time(task: TaskName):
-    """Graph the elapsed time from all the teams that had finished processing the input."""
+    """
+    Graph the elapsed time from all the teams that had finished processing the input.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/graph/depression/teams_elapsed_time" --output "teams_elapsed_time.png"
+    ```
+    """
     global WRITINGS
     writings = WRITINGS[task.value]
     max_number_posts = len(writings)
@@ -1282,7 +1317,8 @@ async def graph_teams_elapsed_time(task: TaskName):
 async def graph_runs_elapsed_time(
     task: TaskName, token: str, run: Optional[List[int]] = Query(None)
 ):
-    """Graph the elapsed time from all the selected runs of a team.
+    """
+    Graph the elapsed time from all the selected runs of a team.
 
     If `run is None`, that is, no run ids are given, graph the elapsed
     time of all the team's runs.
@@ -1292,6 +1328,11 @@ async def graph_runs_elapsed_time(
     graph.
     If you want to graph the elapsed time of runs 0 and 2, you would use:
     `?run=0&run=2` at the end of the URL.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/graph/depression/elapsed_time/777?run=1&run=2" --output "runs_elapsed_time.png"
+    ```
     """
     # Get the task_id.
     task_id = await get_task_id(task)
