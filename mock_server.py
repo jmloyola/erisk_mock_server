@@ -28,10 +28,11 @@ from io import BytesIO
 from fastapi import FastAPI, status, HTTPException, Query
 from databases import Database
 from pydantic import BaseModel, create_model
-from starlette.responses import StreamingResponse
+from starlette.responses import StreamingResponse, HTMLResponse
 import matplotlib.pyplot as plt
 import arviz as az
 import numpy as np
+import pandas as pd
 
 from performance_measures import erde_final, f_latency, value_p, precision_at_k, ndcg
 import config
@@ -43,7 +44,7 @@ WRITINGS = {task_name: [] for task_name in config.challenges_list}
 SUBJECTS = {task_name: {} for task_name in config.challenges_list}
 # Global variable to store the median number of posts from the datasets.
 MEDIAN_NUMBER_POSTS = {task_name: None for task_name in config.challenges_list}
-# Dictionary with the path to the datasets
+# Dictionary with the path to the datasets.
 DATASET_PATHS = {
     task_name: os.path.join(
         config.dataset_root_path, f"{task_name}{config.dataset_file_suffix}"
@@ -320,7 +321,7 @@ def load_writings(task: TaskName):
     print(f"The number of users for {task.value} is {len(subjects)}.")
     print(f"The maximum number of posts for {task.value} is {len(writings)}.")
 
-    # Get median number of posts
+    # Get median number of posts.
     num_posts = [v["num_posts"] for k, v in subjects.items()]
     MEDIAN_NUMBER_POSTS[task.value] = median(num_posts)
     print(
@@ -499,7 +500,7 @@ async def get_writings(task: TaskName, token: str):
     # Get the team_id and number of runs.
     team_id, _, number_runs = await get_team_information(token)
 
-    # Get the current number of post
+    # Get the current number of post.
     query = """SELECT current_post_number FROM runs_status WHERE team_id=:team_id AND task_id=:task_id"""
     result = await database.fetch_one(
         query=query, values={"team_id": team_id, "task_id": task_id}
@@ -1080,7 +1081,7 @@ async def graph_separation_plot(task: TaskName, token: str, time: int):
     )
     fig.suptitle(figure_title, fontsize=17)
 
-    # create a buffer to store image data
+    # Create a buffer to store image data.
     buf = BytesIO()
     fig.savefig(buf, dpi=300, format="png")
     buf.seek(0)
@@ -1230,7 +1231,7 @@ async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int
     ax.set_xlabel("Number of publications")
     ax.set_ylabel("Model score")
 
-    # create a buffer to store image data
+    # Create a buffer to store image data.
     buf = BytesIO()
     fig.savefig(buf, dpi=300, format="png")
     buf.seek(0)
@@ -1312,7 +1313,7 @@ async def graph_teams_elapsed_time(task: TaskName):
     ax.set_xlabel("Teams name")
     ax.set_ylabel("Total time (seconds)")
 
-    # create a buffer to store image data
+    # Create a buffer to store image data.
     buf = BytesIO()
     fig.savefig(buf, dpi=300, format="png")
     buf.seek(0)
@@ -1442,9 +1443,66 @@ async def graph_runs_elapsed_time(
 
     fig.suptitle(f"Runs elapsed time from team {team_name}\n{task.value}", fontsize=17)
 
-    # create a buffer to store image data
+    # Create a buffer to store image data.
     buf = BytesIO()
     fig.savefig(buf, dpi=300, format="png")
     buf.seek(0)
 
     return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get(
+    "/graph/{task}/results",
+    tags=["graphs"],
+    status_code=status.HTTP_200_OK,
+    response_description="Table with the results of all finished experiments.",
+    response_class=HTMLResponse,
+)
+async def graph_all_results(task: TaskName):
+    """
+    Get the table with the results of all finished experiments.
+
+    Example curl commands:
+    ```bash
+    curl -X GET "localhost:8000/graph/depression/results" --output "results_table.html"
+    ```
+    """
+    # Get the task_id.
+    task_id = await get_task_id(task)
+
+    query = """
+        SELECT t.name, r.*
+        FROM teams as t, results as r
+        WHERE t.team_id=r.team_id AND
+            task_id=:task_id
+        ORDER BY r.team_id ASC, r.run_id ASC
+    """
+    results = await database.fetch_all(query=query, values={"task_id": task_id})
+
+    # Get the table columns names.
+    query = """PRAGMA table_info(results)"""
+    table_columns = await database.fetch_all(query=query)
+    table_columns = ["name"] + [t[1] for t in table_columns]
+
+    df = pd.DataFrame(results, columns=table_columns)
+    # Format the real numbers using two decimals, show a subset of the columns and
+    # do not show the (empty) index.
+    # The columns omitted are team_id (index 1) and task_id (index 2).
+    selected_colums = table_columns[:1] + table_columns[3:]
+    html_table = df.to_html(
+        columns=selected_colums, float_format=lambda x: f"{x:.2f}", index=False
+    )
+
+    html_content = f"""
+    <html>
+        <head>
+            <title>Table with the results of all finished experiments for {task.value}.</title>
+        </head>
+        <body>
+            <h1>Table with the results of all finished experiments for {task.value}.</h1>
+            {html_table}
+        </body>
+    </html>
+    """
+
+    return HTMLResponse(content=html_content, status_code=200)

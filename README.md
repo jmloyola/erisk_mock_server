@@ -19,6 +19,7 @@ Besides those, the mock servers can:
 - Graph score evolution of a random users for a given team and run.
 - Graph the elapsed time from all the teams that had finished processing the input.
 - Graph the elapsed time from all the selected runs of a team.
+- Show a table with the results of all finished experiments.
 
 ## Environment set up
 To set up the environment we used [miniconda](https://docs.conda.io/en/latest/miniconda.html).
