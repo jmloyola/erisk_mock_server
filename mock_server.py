@@ -912,7 +912,7 @@ async def post_response(
             f"{task.value}.",
         )
 
-    # If the has not asked for writings, they can't send a response.
+    # If the team has not asked for writings, they can't send a response.
     if current_post_number == -1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
