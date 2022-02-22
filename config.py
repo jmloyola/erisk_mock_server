@@ -6,7 +6,7 @@ challenges_list = ["gambling", "depression"]
 dataset_root_path = "datasets"
 # Suffix for datasets file names. We assume that the final path to a particular
 # corpus file is `dataset_root_path + challenge_name + dataset_file_suffix`.
-dataset_file_suffix = "-test-clean.txt"
+dataset_file_suffix = "-test-raw.txt"
 # Token used to separate posts.
 end_of_post_token = "$END_OF_POST$"
 # Delays used to report the ranking measures.
