@@ -155,7 +155,7 @@ CREATE_TABLE_GET_WRITINGS_REQUESTS = """
         team_id INTEGER,
         task_id INTEGER,
         current_post_number INTEGER,
-        request_time INTEGER,
+        request_time REAL,
         PRIMARY KEY (team_id, task_id, current_post_number),
         FOREIGN KEY (team_id) REFERENCES teams(team_id),
         FOREIGN KEY (task_id) REFERENCES tasks(task_id)
@@ -167,7 +167,7 @@ CREATE_TABLE_RESPONSES = """
         run_id INTEGER,
         current_post_number INTEGER,
         json_response BLOB,
-        response_time INTEGER,
+        response_time REAL,
         PRIMARY KEY (team_id, task_id, run_id, current_post_number),
         FOREIGN KEY (team_id) REFERENCES teams(team_id),
         FOREIGN KEY (task_id) REFERENCES tasks(task_id)
@@ -579,7 +579,7 @@ async def get_writings(task: TaskName, token: str):
                 "team_id": team_id,
                 "task_id": task_id,
                 "current_post_number": new_post_number,
-                "request_time": int(datetime.datetime.now().timestamp()),
+                "request_time": datetime.datetime.now().timestamp(),
             }
             await database.execute(query=query, values=values)
         query = """
@@ -953,7 +953,7 @@ async def post_response(
                 "run_id": internal_run_id,
                 "current_post_number": current_post_number,
                 "json_response": encode_response_as_bytes(response),
-                "response_time": int(datetime.datetime.now().timestamp()),
+                "response_time": datetime.datetime.now().timestamp(),
             }
             await database.execute(query=query, values=values)
         else:
