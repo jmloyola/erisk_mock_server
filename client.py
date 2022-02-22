@@ -161,7 +161,6 @@ if __name__ == "__main__":
         choices=["gambling", "depression"],
         default="depression",
     )
-    parser.add_argument("-p", "--port", help="mock server port", type=int, default=8000)
     parser.add_argument(
         "-k",
         "--number_posts",
@@ -169,6 +168,10 @@ if __name__ == "__main__":
         type=int,
         default=30,
     )
+    parser.add_argument(
+        "-a", "--address", help="mock server address", default="localhost"
+    )
+    parser.add_argument("-p", "--port", help="mock server port", type=int, default=8000)
     args = parser.parse_args()
 
     if args.team_token is None or args.team_name is None or args.team_runs is None:
@@ -178,7 +181,7 @@ if __name__ == "__main__":
         )
         sys.exit()
 
-    base_url = f"http://localhost:{args.port}"
+    base_url = f"http://{args.address}:{args.port}"
     print(
         f"Connecting to the mock server for the task {args.server_task} at {base_url}."
     )
