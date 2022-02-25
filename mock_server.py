@@ -1965,13 +1965,13 @@ async def server_stat_get_requests_elapsed_time(task: TaskName):
         elapsed_times,
         rug=True,
         ax=ax,
-        label=f"μ elapsed_time = {np.mean(elapsed_times)}",
+        label=f"μ elapsed_time = {np.mean(elapsed_times):.3f}",
     )
     ax.set_xlabel("GET elapsed time")
     ax.legend()
 
     fig.suptitle(
-        f"KDE of the elapsed times the server took to answer the GET\nrequests from all finished teams - {task.value}",
+        f"KDE server elapsed times for GET\nrequests from all finished teams - {task.value}",
         fontsize=17,
     )
     fig.tight_layout()
@@ -2042,13 +2042,13 @@ async def server_stat_post_requests_elapsed_time(task: TaskName):
         elapsed_times,
         rug=True,
         ax=ax,
-        label=f"μ elapsed_time = {np.mean(elapsed_times)}",
+        label=f"μ elapsed_time = {np.mean(elapsed_times):.3f}",
     )
     ax.set_xlabel("POST elapsed time")
     ax.legend()
 
     fig.suptitle(
-        f"KDE of the elapsed times the server took to answer the POST\nrequests from all finished teams - {task.value}",
+        f"KDE server elapsed times for POST\nrequests from all finished teams - {task.value}",
         fontsize=17,
     )
     fig.tight_layout()
