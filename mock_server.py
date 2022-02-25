@@ -668,7 +668,14 @@ async def get_writings(task: TaskName, token: str):
     response_description="Calculate the performance results for a team.",
 )
 async def calculate_results(task: TaskName, token: str):
-    """Calculate the performance results for a team."""
+    """
+    Calculate the performance results for a team.
+
+    Example curl commands:
+    ```bash
+    curl -X GET "localhost:8000/calculate_results/gambling/777"
+    ```
+    """
     global SUBJECTS, MEDIAN_NUMBER_POSTS
     subjects = SUBJECTS[task.value]
     median_number_post = MEDIAN_NUMBER_POSTS[task.value]
@@ -1090,7 +1097,7 @@ async def graph_final_separation_plot(task: TaskName, token: str):
 
     Example curl command:
     ```bash
-    curl -X GET "localhost:8000/graph/depression/separation_plot/777" --output "elapsed_time_team.png"
+    curl -X GET "localhost:8000/graph/separation_plot/depression/777" --output "elapsed_time_team.png"
     ```
     """
     global WRITINGS
@@ -1112,7 +1119,7 @@ async def graph_separation_plot(task: TaskName, token: str, time: int):
 
     Example curl command:
     ```bash
-    curl -X GET "localhost:8000/graph/depression/separation_plot/777/30" --output "elapsed_time_team_at_time.png"
+    curl -X GET "localhost:8000/graph/separation_plot/depression/777/30" --output "elapsed_time_team_at_time.png"
     ```
     """
     global SUBJECTS, WRITINGS
@@ -1271,7 +1278,7 @@ async def graph_score_random_user(task: TaskName, token: str, run_id: int):
 
     Example curl command:
     ```bash
-    curl -X GET "localhost:8000/graph/depression/random_user/777/1" --output "score_random_user.png"
+    curl -X GET "localhost:8000/graph/random_user/depression/777/1" --output "score_random_user.png"
     ```
     """
     global SUBJECTS
@@ -1296,7 +1303,7 @@ async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int
 
     Example curl command:
     ```bash
-    curl -X GET "localhost:8000/graph/depression/30/777/1" --output "score_user.png"
+    curl -X GET "localhost:8000/graph/30/depression/777/1" --output "score_user.png"
     ```
     """
     global SUBJECTS
@@ -1358,7 +1365,7 @@ async def graph_teams_elapsed_time(task: TaskName):
 
     Example curl command:
     ```bash
-    curl -X GET "localhost:8000/graph/depression/teams_elapsed_time" --output "teams_elapsed_time.png"
+    curl -X GET "localhost:8000/graph/teams_elapsed_time/depression" --output "teams_elapsed_time.png"
     ```
     """
     global WRITINGS
@@ -1451,7 +1458,7 @@ async def graph_runs_elapsed_time(
 
     Example curl command:
     ```bash
-    curl -X GET "localhost:8000/graph/depression/elapsed_time/777?run=1&run=2" --output "runs_elapsed_time.png"
+    curl -X GET "localhost:8000/graph/elapsed_time/depression/777?run=1&run=2" --output "runs_elapsed_time.png"
     ```
     """
     # Get the task_id.
@@ -1571,7 +1578,7 @@ async def graph_all_results(task: TaskName):
 
     Example curl commands:
     ```bash
-    curl -X GET "localhost:8000/graph/depression/results" --output "results_table.html"
+    curl -X GET "localhost:8000/graph/results/depression" --output "results_table.html"
     ```
     """
     # Get the task_id.
