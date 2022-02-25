@@ -206,6 +206,29 @@ CREATE_TABLE_RESULTS = (
         FOREIGN KEY (task_id) REFERENCES tasks(task_id)
     );"""
 )
+CREATE_TABLE_GET_WRITINGS_SERVER_TIMES = """
+    CREATE TABLE IF NOT EXISTS get_writings_server_times(
+        team_id INTEGER,
+        task_id INTEGER,
+        current_post_number INTEGER,
+        start_time REAL,
+        elapsed_time REAL,
+        PRIMARY KEY (team_id, task_id, current_post_number),
+        FOREIGN KEY (team_id) REFERENCES teams(team_id),
+        FOREIGN KEY (task_id) REFERENCES tasks(task_id)
+    );"""
+CREATE_TABLE_RESPONSES_SERVER_TIMES = """
+    CREATE TABLE IF NOT EXISTS responses_server_times(
+        team_id INTEGER,
+        task_id INTEGER,
+        run_id INTEGER,
+        current_post_number INTEGER,
+        start_time REAL,
+        elapsed_time REAL,
+        PRIMARY KEY (team_id, task_id, run_id, current_post_number),
+        FOREIGN KEY (team_id) REFERENCES teams(team_id),
+        FOREIGN KEY (task_id) REFERENCES tasks(task_id)
+    );"""
 
 
 TABLES_CREATION_QUERIES = [
@@ -215,6 +238,8 @@ TABLES_CREATION_QUERIES = [
     CREATE_TABLE_GET_WRITINGS_REQUESTS,
     CREATE_TABLE_RESPONSES,
     CREATE_TABLE_RESULTS,
+    CREATE_TABLE_GET_WRITINGS_SERVER_TIMES,
+    CREATE_TABLE_RESPONSES_SERVER_TIMES,
 ]
 
 
@@ -509,6 +534,8 @@ async def get_writings(task: TaskName, token: str):
     curl -X GET "localhost:8000/gambling/getwritings/777"
     ```
     """
+    start_timestamp = datetime.datetime.now().timestamp()
+
     # Get the task_id.
     task_id = await get_task_id(task)
 
@@ -583,6 +610,7 @@ async def get_writings(task: TaskName, token: str):
                 f"A new set of writings was given to team {team_id} for {task.value}."
             )
             # Insert the time of the request in the database.
+            end_timestamp = datetime.datetime.now().timestamp()
             query = """
                 INSERT INTO get_writings_requests(
                     team_id, task_id, current_post_number, request_time
@@ -593,7 +621,23 @@ async def get_writings(task: TaskName, token: str):
                 "team_id": team_id,
                 "task_id": task_id,
                 "current_post_number": new_post_number,
-                "request_time": datetime.datetime.now().timestamp(),
+                "request_time": end_timestamp,
+            }
+            await database.execute(query=query, values=values)
+
+            # Save the time it took the server to process the request.
+            query = """
+                INSERT INTO get_writings_server_times(
+                    team_id, task_id, current_post_number, start_time, elapsed_time
+                )
+                VALUES (:team_id, :task_id, :current_post_number, :start_time, :elapsed_time)
+            """
+            values = {
+                "team_id": team_id,
+                "task_id": task_id,
+                "current_post_number": new_post_number,
+                "start_time": start_timestamp,
+                "elapsed_time": end_timestamp - start_timestamp,
             }
             await database.execute(query=query, values=values)
         query = """
@@ -918,6 +962,8 @@ async def post_response(
         localhost:8000/gambling/submit/777/0
     ```
     """
+    start_timestamp = datetime.datetime.now().timestamp()
+
     # Get the task_id.
     task_id = await get_task_id(task)
 
@@ -984,6 +1030,7 @@ async def post_response(
         is_response_complete = check_if_response_complete(response, task)
         if is_response_complete:
             # Insert the value in the database.
+            end_timestamp = datetime.datetime.now().timestamp()
             query = """
                 INSERT INTO responses(
                     team_id, task_id, run_id, current_post_number, json_response, response_time
@@ -996,7 +1043,24 @@ async def post_response(
                 "run_id": internal_run_id,
                 "current_post_number": current_post_number,
                 "json_response": encode_response_as_bytes(response),
-                "response_time": datetime.datetime.now().timestamp(),
+                "response_time": end_timestamp,
+            }
+            await database.execute(query=query, values=values)
+
+            # Save the time it took the server to process the request.
+            query = """
+                INSERT INTO responses_server_times(
+                    team_id, task_id, run_id, current_post_number, start_time, elapsed_time
+                )
+                VALUES (:team_id, :task_id, :run_id, :current_post_number, :start_time, :elapsed_time)
+            """
+            values = {
+                "team_id": team_id,
+                "task_id": task_id,
+                "run_id": internal_run_id,
+                "current_post_number": current_post_number,
+                "start_time": start_timestamp,
+                "elapsed_time": end_timestamp - start_timestamp,
             }
             await database.execute(query=query, values=values)
         else:
