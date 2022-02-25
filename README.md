@@ -10,7 +10,7 @@ Besides those, the mock servers can:
 - List the teams in the system.
 - List the teams that have finished processing the input.
 - Get information of a given team.
-- Automatically calculate time aware measures for the teams that have finished processing the input.
+- Calculate time aware measures for a given team that have finished processing the input.
 - List the results for the teams that have finished.
 - Get the results of a given team.
 - Graph the final separation plot for a given team.
