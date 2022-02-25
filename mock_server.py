@@ -53,9 +53,9 @@ DATASET_PATHS = {
 }
 
 
-# Since by default sqlite3 does not check FOREIGN KEYS, we had to set that
-# option when we connect to the database.
-# We create a subclass of the sqlite3.Connection class to execute the pragma
+# Since by default sqlite3 does not check FOREIGN KEYS, set that option when
+# connecting to the database.
+# Create a subclass of the sqlite3.Connection class to execute the pragma
 # https://github.com/encode/databases/issues/169#issuecomment-644816412
 class Connection(sqlite3.Connection):
     def __init__(self, *args, **kwargs):
@@ -75,7 +75,7 @@ TaskName = Enum(
 # Data Models
 class TeamBase(BaseModel):
     # Since the column team_id is an INTEGER PRIMARY KEY, sqlite automatically
-    # set its value incrementally if not indicated. Thus, we don't need to
+    # set its value incrementally if not indicated. Thus, It isn't necessary to
     # include it in the model.
     # team_id: int
     name: str
@@ -242,7 +242,7 @@ async def startup():
         print("PRAGMA foreign_keys is not set. FOREIGN KEYs will not be checked.")
 
     print(
-        "Checking if there exist any tables. If not, we create all of them and initialize some."
+        "Checking if there exist any tables. If not, create all of them and initialize some."
     )
     query = """SELECT COUNT(*) as number_tables FROM sqlite_schema WHERE name='teams'"""
     result = await database.fetch_one(query=query)
@@ -426,7 +426,7 @@ async def create_team(team: TeamIn):
         team_id = result["team_id"]
 
         for task_id in task_id_list:
-            # We initialize the current_post_number for each run of the team to -1.
+            # Initialize the current_post_number for each run of the team to -1.
             query = """
                 INSERT INTO runs_status(team_id, task_id, current_post_number, has_finished)
                 VALUES (:team_id, :task_id, :current_post_number, :has_finished)
@@ -480,7 +480,7 @@ async def get_writings(task: TaskName, token: str):
     """
     Get the current users writings for the given task and team.
 
-    For this, we should first get the task_id of the task.
+    For this, first get the task_id of the task.
     Then, validate the team token. In case it is correct, get the team_id.
     Get the current number of posts that the team_id needs for task_id.
     Check if the teams has sent the response for the previous time step.
@@ -543,7 +543,7 @@ async def get_writings(task: TaskName, token: str):
         results = await database.fetch_all(query=query, values=values)
 
         # When fetch_all is empty the result is not None, instead it is an empty list.
-        # We don't need to check if results is None.
+        # It isn't necessary to check if results is None.
         if len(results) != number_runs:
             is_last_response_complete = False
     new_post_number = (
@@ -557,7 +557,7 @@ async def get_writings(task: TaskName, token: str):
 
     # Update the current_post_number value for the (team_id, task_id) if a new set of writings was given.
     if is_last_response_complete:
-        # If the team just ended processing all the writings, we set a flag in the database.
+        # If the team just ended processing all the writings, set a flag in the database.
         just_finished = int(new_post_number == len(writings))
         if just_finished:
             print(
@@ -659,7 +659,7 @@ async def calculate_results(task: TaskName, token: str):
             encoded_json_response = row["json_response"]
             json_response = decode_bytes_response(encoded_json_response)
             current_post_number = row["current_post_number"]
-            # Since the API externally starts counting from 1, we have to sum one.
+            # Since the API externally starts counting from 1, sum one.
             current_post_number = current_post_number + 1
 
             for response_data in json_response:
@@ -669,7 +669,7 @@ async def calculate_results(task: TaskName, token: str):
                         "label": 0,
                     }
 
-                # When the user is first classified as positive, we set the corresponding label and delay.
+                # When the user is first classified as positive, set the corresponding label and delay.
                 if (response_data.decision == 1) and (
                     subjects_predictions[response_data.nick]["label"] == 0
                 ):
@@ -679,7 +679,7 @@ async def calculate_results(task: TaskName, token: str):
                     ] = current_post_number
 
                 # If the user has not been label as positive and her posts are finished,
-                # we set the corresponding delay.
+                # set the corresponding delay.
                 if (subjects_predictions[response_data.nick]["label"] == 0) and (
                     subjects[response_data.nick]["num_posts"] == current_post_number
                 ):
@@ -738,7 +738,7 @@ async def calculate_results(task: TaskName, token: str):
             labels=predictions, true_labels=true_labels, delays=delays, penalty=p
         )
 
-        # We insert the results in the database.
+        # Insert the results in the database.
         query = (
             """
             INSERT INTO results(team_id, task_id, run_id, erde_5, erde_50, f_latency"""
@@ -894,7 +894,7 @@ async def post_response(
 
     Note that internally the run_id has values from 1 to infinite, but the API
     for eRisk starts at 0.
-    We made the mapping internally.
+    The mapping was made internally.
 
     Example curl command:
     ```bash
@@ -931,7 +931,7 @@ async def post_response(
     current_post_number = result["current_post_number"]
     has_finished = result["has_finished"]
 
-    # If the team has already finished sending responses for the task, we don't
+    # If the team has already finished sending responses for the task, don't
     # do anything.
     if has_finished:
         raise HTTPException(
@@ -968,7 +968,7 @@ async def post_response(
         # There is no response yet.
         is_response_complete = check_if_response_complete(response, task)
         if is_response_complete:
-            # We insert the value in the database.
+            # Insert the value in the database.
             query = """
                 INSERT INTO responses(
                     team_id, task_id, run_id, current_post_number, json_response, response_time
@@ -1148,26 +1148,26 @@ async def get_model_response_for_user(
         encoded_json_response = row["json_response"]
         json_response = decode_bytes_response(encoded_json_response)
         current_post_number = row["current_post_number"]
-        # Since the API externally starts counting from 1, we have to sum one.
+        # Since the API externally starts counting from 1, sum one.
         current_post_number = current_post_number + 1
 
         for response_data in json_response:
             if response_data.nick == user_id:
                 scores.append(response_data.score)
-                # When the user is first classified as positive, we set the corresponding label and delay.
+                # When the user is first classified as positive, set the corresponding label and delay.
                 if (response_data.decision == 1) and (label == 0):
                     label = 1
                     delay = current_post_number
 
                 # If the user has not been label as positive and her posts are finished,
-                # we set the corresponding delay.
+                # set the corresponding delay.
                 if (label == 0) and (
                     subjects[response_data.nick]["num_posts"] == current_post_number
                 ):
                     label = 0
                     delay = current_post_number
                     finished_processing_user_posts = True
-                # When we found the user, we don't need to look for the others.
+                # When the user is found, it isn't necessary to look for the others.
                 break
         if finished_processing_user_posts:
             break
@@ -1292,7 +1292,7 @@ async def graph_teams_elapsed_time(task: TaskName):
     # Get the teams that had finished processing the input.
     finished_teams = await get_all_finished_teams(task)
 
-    # If there is no team that have finished processing the input, we raise an error.
+    # If there is no team that have finished processing the input, raise an error.
     if not (finished_teams):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1301,8 +1301,8 @@ async def graph_teams_elapsed_time(task: TaskName):
 
     # Get the difference of elapsed times from the last POST and the first GET
     # for every team that have finished processing the input.
-    # Note that we had to "hack" the way we indicated the teams that had finished
-    # in the SQL query.
+    # Note that it was necessary to "hack" the way the teams that had finished
+    # were indicated in the SQL query.
     query = f"""
         SELECT t.team_id, name, (last_post_time - first_get_time) as elapsed_time
         FROM teams as t, (
@@ -1425,7 +1425,8 @@ async def graph_runs_elapsed_time(
     runs_list = [x + 1 for x in run]
 
     # Get the difference of elapsed times from each POST and each GET.
-    # Note that we had to "hack" the way we indicated the runs in the SQL query.
+    # Note that it was necessary to "hack" the way the teams that had finished
+    # were indicated in the SQL query.
     query = f"""
         SELECT (response_time - request_time) as elapsed_time
         FROM get_writings_requests as g, responses as r
@@ -1448,7 +1449,7 @@ async def graph_runs_elapsed_time(
     results = await database.fetch_all(query=query, values=values)
     elapsed_times = [r["elapsed_time"] for r in results]
 
-    # Since we ordered the query results, we can divide the result in chunks
+    # Since the query results were ordered, the results can divided in chunks
     # corresponding to each run.
     elapsed_times_runs = []
     final_pos = 0
