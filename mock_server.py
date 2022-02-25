@@ -603,9 +603,9 @@ async def get_writings(task: TaskName, token: str):
 
 
 @app.get(
-    "calculate_results/{task}/{token}",
+    "/calculate_results/{task}/{token}",
     status_code=status.HTTP_200_OK,
-    tags=["challenge"],
+    tags=["results"],
     response_description="Calculate the performance results for a team.",
 )
 async def calculate_results(task: TaskName, token: str):
@@ -1466,7 +1466,6 @@ async def graph_runs_elapsed_time(
         run_id = runs_list[idx] - 1
         ax.plot(x, values, alpha=0.6, label=f"run = {run_id}")
     ax.legend()
-    ax.set_xticks(x)
     ax.set_xlabel("Number of publication")
     ax.set_ylabel("Time (seconds)")
 
