@@ -563,7 +563,6 @@ async def get_writings(task: TaskName, token: str):
             print(
                 f"The team {team_id} has just ended processing the writings for {task.value}."
             )
-            await calculate_results(team_id, number_runs, task)
         else:
             print(
                 f"A new set of writings was given to team {team_id} for {task.value}."
@@ -603,14 +602,42 @@ async def get_writings(task: TaskName, token: str):
     return response
 
 
-async def calculate_results(team_id: int, number_runs: int, task: TaskName):
-    """Calculate performance for a team's run."""
+@app.get(
+    "calculate_results/{task}/{token}",
+    status_code=status.HTTP_200_OK,
+    tags=["challenge"],
+    response_description="Calculate the performance results for a team.",
+)
+async def calculate_results(task: TaskName, token: str):
+    """Calculate the performance results for a team."""
     global SUBJECTS, MEDIAN_NUMBER_POSTS
     subjects = SUBJECTS[task.value]
     median_number_post = MEDIAN_NUMBER_POSTS[task.value]
 
     # Get the task_id.
     task_id = await get_task_id(task)
+
+    # Get the team_id and number of runs.
+    team_id, _, number_runs = await get_team_information(token)
+
+    # Check if the team has ended processing the input.
+    query = """
+        SELECT has_finished
+        FROM runs_status
+        WHERE team_id=:team_id AND
+              task_id=:task_id
+    """
+    result = await database.fetch_one(
+        query=query, values={"team_id": team_id, "task_id": task_id}
+    )
+    has_finished = result["has_finished"]
+
+    if not has_finished:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The team {team_id} has not finished processing all the input for "
+            f"{task.value}.",
+        )
 
     for i in range(number_runs):
         internal_run_id = i + 1
@@ -744,6 +771,7 @@ async def calculate_results(team_id: int, number_runs: int, task: TaskName):
             values[f"ndcg_at_10_{delay}"] = ndcg_10[j]
             values[f"ndcg_at_100_{delay}"] = ndcg_100[j]
         await database.execute(query=query, values=values)
+    return {"message": "The function `calculate_results` ended successfully."}
 
 
 @app.get(
