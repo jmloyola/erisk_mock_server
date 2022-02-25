@@ -1426,7 +1426,7 @@ async def graph_teams_elapsed_time(task: TaskName):
     )
     ax.set_xlabel("Team name")
     ax.set_ylabel("Total time (seconds)")
-    ax.tick_params(rotation=60)
+    ax.tick_params(axis="x", rotation=60)
 
     # Create a buffer to store image data.
     buf = BytesIO()
@@ -1692,7 +1692,7 @@ async def server_teams_requests_elapsed_time(task: TaskName):
     )
     ax.set_xlabel("Team name")
     ax.set_ylabel("Total time (seconds)")
-    ax.tick_params(rotation=60)
+    ax.tick_params(axis="x", rotation=60)
     fig.tight_layout()
 
     # Create a buffer to store image data.
@@ -1961,7 +1961,7 @@ async def server_stat_get_requests_elapsed_time(task: TaskName):
 
     # Graph the results.
     fig, ax = plt.subplots(nrows=1, ncols=1)
-    az.plot_kde(
+    az.plot_dist(
         elapsed_times,
         rug=True,
         ax=ax,
@@ -2038,7 +2038,7 @@ async def server_stat_post_requests_elapsed_time(task: TaskName):
 
     # Graph the results.
     fig, ax = plt.subplots(nrows=1, ncols=1)
-    az.plot_kde(
+    az.plot_dist(
         elapsed_times,
         rug=True,
         ax=ax,
