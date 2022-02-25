@@ -1079,7 +1079,7 @@ async def post_response(
 
 
 @app.get(
-    "/graph/{task}/separation_plot/{token}",
+    "/graph/separation_plot/{task}/{token}",
     status_code=status.HTTP_200_OK,
     tags=["graphs"],
     response_description="Graph the team's models final separation plots.",
@@ -1101,7 +1101,7 @@ async def graph_final_separation_plot(task: TaskName, token: str):
 
 
 @app.get(
-    "/graph/{task}/separation_plot/{token}/{time}",
+    "/graph/separation_plot/{task}/{token}/{time}",
     status_code=status.HTTP_200_OK,
     tags=["graphs"],
     response_description="Graph the team's models separation plots at a given time.",
@@ -1260,7 +1260,7 @@ async def get_model_response_for_user(
 
 
 @app.get(
-    "/graph/{task}/random_user/{token}/{run_id}",
+    "/graph/random_user/{task}/{token}/{run_id}",
     status_code=status.HTTP_200_OK,
     tags=["graphs"],
     response_description="Graph the model's score given to a random user.",
@@ -1285,7 +1285,7 @@ async def graph_score_random_user(task: TaskName, token: str, run_id: int):
 
 
 @app.get(
-    "/graph/{task}/{user_id}/{token}/{run_id}",
+    "/graph/{user_id}/{task}/{token}/{run_id}",
     status_code=status.HTTP_200_OK,
     tags=["graphs"],
     response_description="Graph the model's score given to a user.",
@@ -1347,7 +1347,7 @@ async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int
 
 
 @app.get(
-    "/graph/{task}/teams_elapsed_time",
+    "/graph/teams_elapsed_time/{task}",
     status_code=status.HTTP_200_OK,
     tags=["graphs"],
     response_description="Graph the elapsed time from all the teams that had finished processing the input.",
@@ -1429,7 +1429,7 @@ async def graph_teams_elapsed_time(task: TaskName):
 
 
 @app.get(
-    "/graph/{task}/elapsed_time/{token}",
+    "/graph/elapsed_time/{task}/{token}",
     status_code=status.HTTP_200_OK,
     tags=["graphs"],
     response_description="Graph the elapsed time from all the selected runs of a team.",
@@ -1559,7 +1559,7 @@ async def graph_runs_elapsed_time(
 
 
 @app.get(
-    "/graph/{task}/results",
+    "/graph/results/{task}",
     tags=["graphs"],
     status_code=status.HTTP_200_OK,
     response_description="Table with the results of all finished experiments.",
