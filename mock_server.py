@@ -57,10 +57,22 @@ DATASET_PATHS = {
 # connecting to the database.
 # Create a subclass of the sqlite3.Connection class to execute the pragma
 # https://github.com/encode/databases/issues/169#issuecomment-644816412
+#
+# Also, to avoid being locked of the database by an operation that takes too
+# long, set the `busy_timeout` pragma. This is related to the timeout parameter
+# from sqlite3 in Python.
+# Since the package databases does not passes any options to database, these
+# need to be set using pragmas when possible.
+# The timeout parameter specifies how long the connection should wait for the
+# lock to go away until raising an exception.
+# See
+#   https://github.com/python/cpython/blob/b2077117d125925210148294eefee28797b7ff4c/Modules/_sqlite/connection.c#L212
+#   https://www.sqlite.org/pragma.html#pragma_busy_timeout
 class Connection(sqlite3.Connection):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.execute("""PRAGMA foreign_keys=ON""")
+        self.execute("""PRAGMA busy_timeout=120000""")
 
 
 app = FastAPI()
@@ -240,6 +252,9 @@ async def startup():
         print("PRAGMA foreign_keys is set. FOREIGN KEYs will be checked.")
     else:
         print("PRAGMA foreign_keys is not set. FOREIGN KEYs will not be checked.")
+
+    result = await database.fetch_one(query="""PRAGMA busy_timeout""")
+    print(f"PRAGMA busy_timeout = {result[0]} milliseconds.")
 
     print(
         "Checking if there exist any tables. If not, create all of them and initialize some."
