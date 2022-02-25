@@ -1536,7 +1536,7 @@ async def graph_runs_elapsed_time(
     results = await database.fetch_all(query=query, values=values)
     elapsed_times = [r["elapsed_time"] for r in results]
 
-    # Since the query results were ordered, the results can divided in chunks
+    # Since the query results were ordered, the results can be divided in chunks
     # corresponding to each run.
     elapsed_times_runs = []
     final_pos = 0
@@ -1621,3 +1621,441 @@ async def graph_all_results(task: TaskName):
     """
 
     return HTMLResponse(content=html_content, status_code=200)
+
+
+@app.get(
+    "/server/teams_requests_elapsed_time/{task}",
+    status_code=status.HTTP_200_OK,
+    tags=["server times"],
+    response_description="Graph the time the server took to answer the requests"
+    "from all the teams that had finished processing the input.",
+)
+async def server_teams_requests_elapsed_time(task: TaskName):
+    """
+    Graph the time the server took to answer the requests from all the teams that had finished processing the input.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/server/teams_requests_elapsed_time/depression" \
+        --output "server_teams_requests_elapsed_time.png"
+    ```
+    """
+    # Get the task_id.
+    task_id = await get_task_id(task)
+
+    # Get the teams that had finished processing the input.
+    finished_teams = await get_all_finished_teams(task)
+
+    # If there is no team that have finished processing the input, raise an error.
+    if not (finished_teams):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Currently, there is no team that have finished processing the input for {task.value}.",
+        )
+
+    # Get the sum of elapsed times from all the POSTs and GETs
+    # for every team that have finished processing the input.
+    # Note that it was necessary to "hack" the way the teams that had finished
+    # were indicated in the SQL query.
+    query = f"""
+        SELECT t.team_id, name, (sum_get_elapsed_time + sum_post_elapsed_time) as total_elapsed_time
+        FROM teams as t, (
+            SELECT g.team_id, SUM(g.elapsed_time) as sum_get_elapsed_time, SUM(r.elapsed_time) as sum_post_elapsed_time
+            FROM get_writings_server_times as g, responses_server_times as r
+            WHERE g.team_id=r.team_id AND
+                g.task_id=r.task_id AND
+                g.task_id=:task_id AND
+                g.team_id IN ({', '.join([":team"+str(i) for i in range(len(finished_teams))])})
+            GROUP BY g.team_id
+        ) as e
+        WHERE t.team_id=e.team_id
+    """
+    finished_teams_dict = {
+        "team" + str(i): finished_teams[i].team_id for i in range(len(finished_teams))
+    }
+    values = {
+        "task_id": task_id,
+    }
+    values = {**values, **finished_teams_dict}
+
+    results = await database.fetch_all(query=query, values=values)
+    names = [i["name"] for i in results]
+    elapsed_times = [r["total_elapsed_time"] for r in results]
+
+    # Graph the results.
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    ax.bar(names, elapsed_times)
+
+    fig.suptitle(
+        f"Server elapsed time to answer requests from\nteams that have finished - {task.value}",
+        fontsize=17,
+    )
+    ax.set_xlabel("Team name")
+    ax.set_ylabel("Total time (seconds)")
+    ax.tick_params(rotation=60)
+    fig.tight_layout()
+
+    # Create a buffer to store image data.
+    buf = BytesIO()
+    fig.savefig(buf, dpi=300, format="png")
+    buf.seek(0)
+
+    return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get(
+    "/server/requests_elapsed_time/get/{task}/{token}",
+    status_code=status.HTTP_200_OK,
+    tags=["server times"],
+    response_description="Graph the time the server took to answer the GET requests "
+    "from a team that had finished processing the input.",
+)
+async def server_get_requests_elapsed_time(task: TaskName, token: str):
+    """
+    Graph the time the server took to answer the GET requests from a team that had finished processing the input.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/server/requests_elapsed_time/get/depression/777" \
+        --output "server_get_requests_elapsed_time.png"
+    ```
+    """
+    # Get the task_id.
+    task_id = await get_task_id(task)
+
+    # Check if the given team has finished processing the input.
+    query = """
+        SELECT teams.team_id, name
+        FROM teams, runs_status
+        WHERE teams.team_id=runs_status.team_id AND
+              teams.token=:token AND
+              runs_status.task_id=:task_id AND
+              runs_status.has_finished=1
+    """
+    values = {
+        "token": token,
+        "task_id": task_id,
+    }
+    result = await database.fetch_one(query=query, values=values)
+
+    # If the team didn't finished processing the input, raise an error.
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"The team with token '{token}' have not yet finished processing the input for {task.value}.",
+        )
+    team_id = result["team_id"]
+    team_name = result["name"]
+
+    # Get the elapsed times from each GET.
+    query = """
+        SELECT elapsed_time
+        FROM get_writings_server_times
+        WHERE team_id=:team_id AND
+            task_id=:task_id
+        ORDER BY current_post_number ASC
+    """
+
+    values = {
+        "team_id": team_id,
+        "task_id": task_id,
+    }
+
+    results = await database.fetch_all(query=query, values=values)
+    elapsed_times = [r["elapsed_time"] for r in results]
+
+    # Graph the results.
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    x = list(range(1, len(elapsed_times) + 1))
+    ax.plot(x, elapsed_times)
+    ax.set_xlabel("Number of publication")
+    ax.set_ylabel("Time (seconds)")
+
+    fig.suptitle(
+        f"Time the server took to answer the GET\nrequests from team {team_name} - {task.value}",
+        fontsize=17,
+    )
+    fig.tight_layout()
+
+    # Create a buffer to store image data.
+    buf = BytesIO()
+    fig.savefig(buf, dpi=300, format="png")
+    buf.seek(0)
+
+    return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get(
+    "/server/requests_elapsed_time/post/{task}/{token}",
+    status_code=status.HTTP_200_OK,
+    tags=["server times"],
+    response_description="Graph the time the server took to answer the POST requests "
+    "from a team that had finished processing the input.",
+)
+async def server_post_requests_elapsed_time(
+    task: TaskName, token: str, run: Optional[List[int]] = Query(None)
+):
+    """
+    Graph the time the server took to answer the POST requests from a team that had finished processing the input.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/server/requests_elapsed_time/post/depression/777?run=1&run=2" \
+        --output "server_post_requests_elapsed_time.png"
+    ```
+    """
+    # Get the task_id.
+    task_id = await get_task_id(task)
+
+    # Check if the given team has finished processing the input.
+    query = """
+        SELECT teams.team_id, name, teams.number_runs
+        FROM teams, runs_status
+        WHERE teams.team_id=runs_status.team_id AND
+              teams.token=:token AND
+              runs_status.task_id=:task_id AND
+              runs_status.has_finished=1
+    """
+    values = {
+        "token": token,
+        "task_id": task_id,
+    }
+    result = await database.fetch_one(query=query, values=values)
+
+    # If the team didn't finished processing the input, raise an error.
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"The team with token '{token}' have not yet finished processing the input for {task.value}.",
+        )
+    team_id = result["team_id"]
+    team_name = result["name"]
+    number_runs = result["number_runs"]
+
+    # If there is list of run ids, check if they are valid.
+    # If any of them is invalid, raise an error.
+    # Also check if any of the run ids are repeated.
+    if run:
+        if len(set(run)) != len(run):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="There is a repeated run_id in the request.",
+            )
+        for run_id in run:
+            if not (0 <= run_id < number_runs):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Invalid run_id {run_id} for token '{token}'.",
+                )
+    else:
+        run = list(range(number_runs))
+
+    # Increment the run_id value to map from API to database.
+    runs_list = [x + 1 for x in run]
+
+    # Get the elapsed times from each POST.
+    query = f"""
+        SELECT elapsed_time
+        FROM responses_server_times
+        WHERE team_id=:team_id AND
+            task_id=:task_id AND
+            run_id IN ({', '.join([":run"+str(i) for i in runs_list])})
+        ORDER BY run_id ASC, current_post_number ASC
+    """
+
+    runs_dict = {"run" + str(run_id): run_id for run_id in runs_list}
+    values = {
+        "team_id": team_id,
+        "task_id": task_id,
+    }
+    values = {**values, **runs_dict}
+
+    results = await database.fetch_all(query=query, values=values)
+    elapsed_times = [r["elapsed_time"] for r in results]
+
+    # Since the query results were ordered, the results can be divided in chunks
+    # corresponding to each run.
+    elapsed_times_runs = []
+    final_pos = 0
+    len_each_list = len(elapsed_times) // len(runs_list)
+    for _ in runs_list:
+        initial_pos = final_pos
+        final_pos += len_each_list
+        elapsed_times_runs.append(elapsed_times[initial_pos:final_pos])
+
+    # Graph the results.
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    x = list(range(1, len(elapsed_times_runs[0]) + 1))
+    for idx, values in enumerate(elapsed_times_runs):
+        run_id = runs_list[idx] - 1
+        ax.plot(x, values, alpha=0.6, label=f"run = {run_id}")
+    ax.legend()
+    ax.set_xlabel("Number of publication")
+    ax.set_ylabel("Time (seconds)")
+
+    fig.suptitle(
+        f"Time the server took to answer the POST\nrequests from team {team_name} - {task.value}",
+        fontsize=17,
+    )
+    fig.tight_layout()
+
+    # Create a buffer to store image data.
+    buf = BytesIO()
+    fig.savefig(buf, dpi=300, format="png")
+    buf.seek(0)
+
+    return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get(
+    "/server/stat_requests_elapsed_time/get/{task}",
+    status_code=status.HTTP_200_OK,
+    tags=["server times"],
+    response_description="Graph stats about the time the server took to answer "
+    "the GET requests from all the teams that had finished processing the input.",
+)
+async def server_stat_get_requests_elapsed_time(task: TaskName):
+    """
+    Graph stats about the time the server took to answer the GET requests from
+    all the teams that had finished processing the input.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/server/stat_requests_elapsed_time/get/depression" \
+        --output "server_stat_get_requests_elapsed_time.png"
+    ```
+    """
+    # Get the task_id.
+    task_id = await get_task_id(task)
+
+    # Get the teams that had finished processing the input.
+    finished_teams = await get_all_finished_teams(task)
+
+    # If there is no team that have finished processing the input, raise an error.
+    if not (finished_teams):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Currently, there is no team that have finished processing the input for {task.value}.",
+        )
+
+    # Get the all the elapsed times from all the GETs
+    # for every team that have finished processing the input.
+    # Note that it was necessary to "hack" the way the teams that had finished
+    # were indicated in the SQL query.
+    query = f"""
+        SELECT elapsed_time
+        FROM get_writings_server_times
+        WHERE task_id=:task_id AND
+            team_id IN ({', '.join([":team"+str(i) for i in range(len(finished_teams))])})
+    """
+    finished_teams_dict = {
+        "team" + str(i): finished_teams[i].team_id for i in range(len(finished_teams))
+    }
+    values = {
+        "task_id": task_id,
+    }
+    values = {**values, **finished_teams_dict}
+
+    results = await database.fetch_all(query=query, values=values)
+    elapsed_times = [r["elapsed_time"] for r in results]
+
+    # Graph the results.
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    az.plot_kde(
+        elapsed_times,
+        rug=True,
+        ax=ax,
+        label=f"μ elapsed_time = {np.mean(elapsed_times)}",
+    )
+    ax.set_xlabel("GET elapsed time")
+    ax.legend()
+
+    fig.suptitle(
+        f"KDE of the elapsed times the server took to answer the GET\nrequests from all finished teams - {task.value}",
+        fontsize=17,
+    )
+    fig.tight_layout()
+
+    # Create a buffer to store image data.
+    buf = BytesIO()
+    fig.savefig(buf, dpi=300, format="png")
+    buf.seek(0)
+
+    return StreamingResponse(buf, media_type="image/png")
+
+
+@app.get(
+    "/server/stat_requests_elapsed_time/post/{task}",
+    status_code=status.HTTP_200_OK,
+    tags=["server times"],
+    response_description="Graph stats about the time the server took to answer "
+    "the POST requests from all the teams that had finished processing the input.",
+)
+async def server_stat_post_requests_elapsed_time(task: TaskName):
+    """
+    Graph stats about the time the server took to answer the POST requests from
+    all the teams that had finished processing the input.
+
+    Example curl command:
+    ```bash
+    curl -X GET "localhost:8000/server/stat_requests_elapsed_time/post/depression" \
+        --output "server_stat_post_requests_elapsed_time.png"
+    ```
+    """
+    # Get the task_id.
+    task_id = await get_task_id(task)
+
+    # Get the teams that had finished processing the input.
+    finished_teams = await get_all_finished_teams(task)
+
+    # If there is no team that have finished processing the input, raise an error.
+    if not (finished_teams):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Currently, there is no team that have finished processing the input for {task.value}.",
+        )
+
+    # Get the all the elapsed times from all the GETs
+    # for every team that have finished processing the input.
+    # Note that it was necessary to "hack" the way the teams that had finished
+    # were indicated in the SQL query.
+    query = f"""
+        SELECT elapsed_time
+        FROM responses_server_times
+        WHERE task_id=:task_id AND
+            team_id IN ({', '.join([":team"+str(i) for i in range(len(finished_teams))])})
+    """
+    finished_teams_dict = {
+        "team" + str(i): finished_teams[i].team_id for i in range(len(finished_teams))
+    }
+    values = {
+        "task_id": task_id,
+    }
+    values = {**values, **finished_teams_dict}
+
+    results = await database.fetch_all(query=query, values=values)
+    elapsed_times = [r["elapsed_time"] for r in results]
+
+    # Graph the results.
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    az.plot_kde(
+        elapsed_times,
+        rug=True,
+        ax=ax,
+        label=f"μ elapsed_time = {np.mean(elapsed_times)}",
+    )
+    ax.set_xlabel("POST elapsed time")
+    ax.legend()
+
+    fig.suptitle(
+        f"KDE of the elapsed times the server took to answer the POST\nrequests from all finished teams - {task.value}",
+        fontsize=17,
+    )
+    fig.tight_layout()
+
+    # Create a buffer to store image data.
+    buf = BytesIO()
+    fig.savefig(buf, dpi=300, format="png")
+    buf.seek(0)
+
+    return StreamingResponse(buf, media_type="image/png")
