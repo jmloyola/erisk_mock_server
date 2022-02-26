@@ -1634,6 +1634,13 @@ async def server_teams_requests_elapsed_time(task: TaskName):
     """
     Graph the time the server took to answer the requests from all the teams that had finished processing the input.
 
+    The only endpoints considered are `/{task}/getwritings/{token}` and
+    `/{task}/submit/{token}/{run_id}`, those are the only endpoints available in
+    the eRisk server.
+    Note that the time for each request is summed, even though some of the POSTs
+    request happen concurrently. The final result resembles a system that
+    processes each request sequentially.
+
     Example curl command:
     ```bash
     curl -X GET "localhost:8000/server/teams_requests_elapsed_time/depression" \
@@ -1713,6 +1720,8 @@ async def server_teams_requests_elapsed_time(task: TaskName):
 async def server_get_requests_elapsed_time(task: TaskName, token: str):
     """
     Graph the time the server took to answer the GET requests from a team that had finished processing the input.
+
+    The only endpoint considered is `/{task}/getwritings/{token}`.
 
     Example curl command:
     ```bash
@@ -1797,6 +1806,8 @@ async def server_post_requests_elapsed_time(
 ):
     """
     Graph the time the server took to answer the POST requests from a team that had finished processing the input.
+
+    The only endpoint considered is `/{task}/submit/{token}/{run_id}`.
 
     Example curl command:
     ```bash
@@ -1919,6 +1930,8 @@ async def server_stat_get_requests_elapsed_time(task: TaskName):
     Graph stats about the time the server took to answer the GET requests from
     all the teams that had finished processing the input.
 
+    The only endpoint considered is `/{task}/getwritings/{token}`.
+
     Example curl command:
     ```bash
     curl -X GET "localhost:8000/server/stat_requests_elapsed_time/get/depression" \
@@ -1996,6 +2009,8 @@ async def server_stat_post_requests_elapsed_time(task: TaskName):
     """
     Graph stats about the time the server took to answer the POST requests from
     all the teams that had finished processing the input.
+
+    The only endpoint considered is `/{task}/submit/{token}/{run_id}`.
 
     Example curl command:
     ```bash
