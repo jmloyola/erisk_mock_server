@@ -22,9 +22,9 @@ import asyncio
 import sys
 
 
-GET_TIMEOUT_LIMIT = 240
-POST_TIMEOUT_LIMIT = 180
-NUMBER_RETRIES = 5
+GET_TIMEOUT_LIMIT = 920
+POST_TIMEOUT_LIMIT = 920
+NUMBER_RETRIES = 1
 
 
 def get_users_nicknames(json_data):
