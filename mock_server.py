@@ -1427,6 +1427,7 @@ async def graph_teams_elapsed_time(task: TaskName):
     ax.set_xlabel("Team name")
     ax.set_ylabel("Total time (seconds)")
     ax.tick_params(axis="x", rotation=60)
+    fig.tight_layout()
 
     # Create a buffer to store image data.
     buf = BytesIO()
