@@ -93,6 +93,7 @@ class TeamBase(BaseModel):
     name: str
     token: str
     number_runs: int
+    extra_info = 'no extra information'
 
 
 class TeamIn(TeamBase):
@@ -145,7 +146,8 @@ CREATE_TABLE_TEAMS = """
         team_id INTEGER PRIMARY KEY,
         name VARCHAR(40) UNIQUE,
         token VARCHAR(42) UNIQUE,
-        number_runs INTEGER
+        number_runs INTEGER,
+        extra_info TEXT DEFAULT "no extra information"
     );"""
 CREATE_TABLE_TASK = """
     CREATE TABLE IF NOT EXISTS tasks(
@@ -442,7 +444,10 @@ async def create_team(team: TeamIn):
         -d '{"name":"TESTING", "token":"1234", "number_runs":1}' localhost:8000/teams/new
     ```
     """
-    query = """INSERT INTO teams(name, token, number_runs) VALUES (:name, :token, :number_runs)"""
+    query = """
+        INSERT INTO teams(name, token, number_runs, extra_info)
+        VALUES (:name, :token, :number_runs, :extra_info)
+    """
     values = team.dict()
 
     try:
