@@ -1324,6 +1324,12 @@ async def graph_score_user(task: TaskName, user_id: str, token: str, run_id: int
             detail=f"Invalid run_id {run_id} for token '{token}'.",
         )
 
+    if user_id not in subjects:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Invalid user_id {user_id} for task '{task.value}'.",
+        )
+
     true_label = subjects[user_id]["label"]
     num_posts = subjects[user_id]["num_posts"]
 
