@@ -1187,6 +1187,12 @@ async def graph_separation_plot(task: TaskName, token: str, time: int):
     true_labels = np.asarray(true_labels)
     scores = np.asarray(scores)
     fig, ax = plt.subplots(nrows=number_runs, ncols=1)
+
+    # If the team has only one run we have to turn the ax variable into a list to
+    # be able to index it later on.
+    if number_runs == 1:
+        ax = [ax]
+
     for i in range(number_runs):
         az.plot_separation(
             y=true_labels, y_hat=scores[i], y_hat_line=True, legend=False, ax=ax[i]
