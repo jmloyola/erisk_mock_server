@@ -17,8 +17,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import argparse
-import httpx
 import asyncio
+import httpx
 import sys
 
 

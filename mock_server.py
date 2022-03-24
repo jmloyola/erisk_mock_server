@@ -16,23 +16,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 
-import os
-import json
-import sqlite3
+import arviz as az
+from databases import Database
 import datetime
 from enum import Enum
-from typing import List, Optional
-from random import choice
-from io import BytesIO
-
 from fastapi import FastAPI, status, HTTPException, Query
-from databases import Database
-from pydantic import BaseModel, create_model
-from starlette.responses import StreamingResponse, HTMLResponse
+from io import BytesIO
+import json
 import matplotlib.pyplot as plt
-import arviz as az
 import numpy as np
+import os
 import pandas as pd
+from pydantic import BaseModel, create_model
+from random import choice
+from sklearn.metrics import precision_recall_fscore_support
+import sqlite3
+from starlette.responses import StreamingResponse, HTMLResponse
+from typing import List, Optional
 
 from performance_measures import erde_final, f_latency, value_p, precision_at_k, ndcg
 import config
@@ -93,7 +93,7 @@ class TeamBase(BaseModel):
     name: str
     token: str
     number_runs: int
-    extra_info = 'no extra information'
+    extra_info = "no extra information"
 
 
 class TeamIn(TeamBase):
@@ -124,6 +124,12 @@ class BaseExperimentResult(BaseModel):
     team_id: int
     task_id: int
     run_id: int
+    precision: float
+    recall: float
+    f1_score: float
+    positive_precision: float
+    positive_recall: float
+    positive_f1_score: float
     erde_5: float
     erde_50: float
     f_latency: float
@@ -192,6 +198,12 @@ CREATE_TABLE_RESULTS = (
         team_id INTEGER,
         task_id INTEGER,
         run_id INTEGER,
+        precision REAL,
+        recall REAL,
+        f1_score REAL,
+        positive_precision REAL,
+        positive_recall REAL,
+        positive_f1_score REAL,
         erde_5 REAL,
         erde_50 REAL,
         f_latency REAL,
@@ -776,6 +788,18 @@ async def calculate_results(task: TaskName, token: str):
                     subjects_predictions[nick][f"score_{j}"]
                 )
 
+        precision, recall, f1_score, _ = precision_recall_fscore_support(
+            y_true=true_labels, y_pred=predictions, average="weighted"
+        )
+        (
+            positive_precision,
+            positive_recall,
+            positive_f1_score,
+            _,
+        ) = precision_recall_fscore_support(
+            y_true=true_labels, y_pred=predictions, average="binary"
+        )
+
         precision_at_10 = [
             precision_at_k(scores=scores_dict[f"score_{j}"], y_true=true_labels, k=10)
             for j in config.chosen_delays_for_ranking
@@ -812,7 +836,8 @@ async def calculate_results(task: TaskName, token: str):
         # Insert the results in the database.
         query = (
             """
-            INSERT INTO results(team_id, task_id, run_id, erde_5, erde_50, f_latency"""
+            INSERT INTO results(team_id, task_id, run_id, precision, recall, f1_score, positive_precision,
+                                positive_recall, positive_f1_score, erde_5, erde_50, f_latency"""
             + "".join(
                 [
                     f", precision_at_10_{i}, ndcg_at_10_{i}, ndcg_at_100_{i}"
@@ -820,7 +845,8 @@ async def calculate_results(task: TaskName, token: str):
                 ]
             )
             + """)
-            VALUES (:team_id, :task_id, :run_id, :erde_5, :erde_50, :f_latency"""
+            VALUES (:team_id, :task_id, :run_id, :precision, :recall, :f1_score, :positive_precision,
+                    :positive_recall, :positive_f1_score, :erde_5, :erde_50, :f_latency"""
             + "".join(
                 [
                     f", :precision_at_10_{i}, :ndcg_at_10_{i}, :ndcg_at_100_{i}"
@@ -833,6 +859,12 @@ async def calculate_results(task: TaskName, token: str):
             "team_id": team_id,
             "task_id": task_id,
             "run_id": internal_run_id,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1_score,
+            "positive_precision": positive_precision,
+            "positive_recall": positive_recall,
+            "positive_f1_score": positive_f1_score,
             "erde_5": erde_5,
             "erde_50": erde_50,
             "f_latency": f_latency_result,
