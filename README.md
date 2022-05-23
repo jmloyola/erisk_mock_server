@@ -20,6 +20,11 @@ Besides those, the mock servers can:
 - Graph the elapsed time from all the teams that had finished processing the input.
 - Graph the elapsed time from all the selected runs of a team.
 - Show a table with the results of all finished experiments.
+- Graph the time the server took to answer the requests from all the teams that had finished processing the input.
+- Graph the time the server took to answer the GET requests from a team that had finished processing the input.
+- Graph the time the server took to answer the POST requests from a team that had finished processing the input.
+- Graph stats about the time the server took to answer the GET requests from all the teams that had finished processing the input.
+- Graph stats about the time the server took to answer the POST requests from all the teams that had finished processing the input.
 
 ## Environment set up
 To set up the environment we used [miniconda](https://docs.conda.io/en/latest/miniconda.html).
