@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/442170905.svg)](https://zenodo.org/badge/latestdoi/442170905)
+
 # eRisk mock server
 Mock server for the [eRisk challenge](https://erisk.irlab.org/).
 
