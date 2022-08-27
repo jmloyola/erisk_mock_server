@@ -34,7 +34,7 @@ import sqlite3
 from starlette.responses import StreamingResponse, HTMLResponse
 from typing import List, Optional
 
-from performance_measures import erde_final, f_latency, value_p, precision_at_k, ndcg
+from performance_measures import erde_final, f_latency, precision_at_k, ndcg
 import config
 
 
@@ -695,7 +695,8 @@ async def calculate_results(task: TaskName, token: str):
     """
     global SUBJECTS, MEDIAN_NUMBER_POSTS
     subjects = SUBJECTS[task.value]
-    median_number_post = MEDIAN_NUMBER_POSTS[task.value]
+    # Not used since the penalty value is hardcoded.
+    # median_number_post = MEDIAN_NUMBER_POSTS[task.value]
 
     # Get the task_id.
     task_id = await get_task_id(task)
@@ -828,7 +829,9 @@ async def calculate_results(task: TaskName, token: str):
             c_fp=c_fp,
             o=50,
         )
-        p = value_p(k=median_number_post)
+        # p = value_p(k=median_number_post)
+        # Penalty value obtained from the paper eRisk 2022 overview.
+        p = 0.0078
         f_latency_result = f_latency(
             labels=predictions, true_labels=true_labels, delays=delays, penalty=p
         )
